@@ -181,6 +181,43 @@
 			backdrop-filter: blur(10px);
 		}
 
+		#mobileBlock {
+			position: fixed;
+			inset: 0;
+			z-index: 20;
+			display: none;
+			place-items: center;
+			text-align: center;
+			padding: 24px;
+			background:
+				radial-gradient(900px 420px at 50% 20%, rgba(255, 255, 255, 0.84), rgba(235, 242, 250, 0.94)),
+				linear-gradient(145deg, #f5f9fd, #e7eef7);
+			color: #1f2d3d;
+			font-family: "Avenir Next", "Helvetica Neue", sans-serif;
+		}
+
+		#mobileBlock .card {
+			max-width: 540px;
+			background: rgba(255, 255, 255, 0.88);
+			border: 1px solid rgba(35, 55, 80, 0.16);
+			border-radius: 14px;
+			padding: 20px;
+			box-shadow: 0 14px 30px rgba(31, 45, 61, 0.14);
+		}
+
+		#mobileBlock h2 {
+			margin: 0 0 8px;
+			font-size: 1.16rem;
+			letter-spacing: 0.03em;
+		}
+
+		#mobileBlock p {
+			margin: 0;
+			font-size: 0.96rem;
+			line-height: 1.42;
+			color: #3d5874;
+		}
+
 		@media (max-width: 860px) {
 			#split {
 				grid-template-columns: 1fr;
@@ -209,8 +246,6 @@
 		<p id="hudText"></p>
 	</div>
 
-	<div id="legend">0 = light cubes, 1 = blue cubes</div>
-
 	<div id="entry">
 		<form id="split" autocomplete="off">
 			<div class="pane left">
@@ -220,9 +255,16 @@
 			<div class="pane right">
 				<p class="kicker">Secret Key (8 chars)</p>
 				<input id="keytext" class="field" maxlength="8" placeholder="Type 8-char key" value="SeCr3t!!" />
-				<button id="cta" type="submit">Start 3D Journey</button>
+				<button id="cta" type="submit">Start</button>
 			</div>
 		</form>
+	</div>
+
+	<div id="mobileBlock">
+		<div class="card">
+			<h2>Doesn't Work On Mobile/Tablet</h2>
+			<p>This DES visualization currently runs only on desktop screens. Please open it on a laptop or desktop browser.</p>
+		</div>
 	</div>
 
 	<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
@@ -282,6 +324,17 @@
 			46, 42, 50, 36, 29, 32
 		];
 
+		const P = [
+			16, 7, 20, 21,
+			29, 12, 28, 17,
+			1, 15, 23, 26,
+			5, 18, 31, 10,
+			2, 8, 24, 14,
+			32, 27, 3, 9,
+			19, 13, 30, 6,
+			22, 11, 4, 25
+		];
+
 		const SBOX = [
 			[[14,4,13,1,2,15,11,8,3,10,6,12,5,9,0,7],[0,15,7,4,14,2,13,1,10,6,12,11,9,5,3,8],[4,1,14,8,13,6,2,11,15,12,9,7,3,10,5,0],[15,12,8,2,4,9,1,7,5,11,3,14,10,0,6,13]],
 			[[15,1,8,14,6,11,3,4,9,7,2,13,12,0,5,10],[3,13,4,7,15,2,8,14,12,0,1,10,6,9,11,5],[0,14,7,11,10,4,13,1,5,8,12,6,9,3,2,15],[13,8,10,1,3,15,4,2,11,6,7,12,0,5,14,9]],
@@ -300,6 +353,40 @@
 		const split = document.getElementById("split");
 		const plaintextInput = document.getElementById("plaintext");
 		const keyInput = document.getElementById("keytext");
+		const mobileBlock = document.getElementById("mobileBlock");
+		const isMobileOrTablet = /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)
+			|| (window.matchMedia("(max-width: 1024px) and (pointer: coarse)").matches);
+		const skipRoundBtn = document.createElement("button");
+		skipRoundBtn.type = "button";
+		skipRoundBtn.textContent = "Fast Forward\nTo The End Of Round 16";
+		skipRoundBtn.style.position = "fixed";
+		skipRoundBtn.style.right = "18px";
+		skipRoundBtn.style.bottom = "18px";
+		skipRoundBtn.style.zIndex = "7";
+		skipRoundBtn.style.minHeight = "42px";
+		skipRoundBtn.style.padding = "6px 16px";
+		skipRoundBtn.style.border = "0";
+		skipRoundBtn.style.borderRadius = "11px";
+		skipRoundBtn.style.color = "rgba(255, 255, 255, 0.96)";
+		skipRoundBtn.style.fontWeight = "700";
+		skipRoundBtn.style.fontSize = "0.92rem";
+		skipRoundBtn.style.lineHeight = "1.1";
+		skipRoundBtn.style.whiteSpace = "pre-line";
+		skipRoundBtn.style.textAlign = "center";
+		skipRoundBtn.style.cursor = "pointer";
+		skipRoundBtn.style.opacity = "0";
+		skipRoundBtn.style.pointerEvents = "none";
+		skipRoundBtn.style.transition = "background 0.24s ease, box-shadow 0.24s ease, transform 0.24s ease";
+		skipRoundBtn.style.transform = "translateY(0px)";
+		skipRoundBtn.style.display = "none";
+		document.body.appendChild(skipRoundBtn);
+
+		if (isMobileOrTablet) {
+			mobileBlock.style.display = "grid";
+			entry.style.display = "none";
+			hud.style.display = "none";
+			skipRoundBtn.style.display = "none";
+		}
 
 		const scene = new THREE.Scene();
 		const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 260);
@@ -318,8 +405,10 @@
 		dir.position.set(8, 11, 10);
 		scene.add(amb, hemi, dir);
 
+		const FLOOR_BASE_WIDTH = 80;
+		const FLOOR_BASE_DEPTH = 80;
 		const floor = new THREE.Mesh(
-			new THREE.PlaneGeometry(80, 80),
+			new THREE.PlaneGeometry(FLOOR_BASE_WIDTH, FLOOR_BASE_DEPTH),
 			new THREE.MeshStandardMaterial({ color: 0xecf2f8, roughness: 0.95, metalness: 0.02 })
 		);
 		floor.rotation.x = -Math.PI / 2;
@@ -331,15 +420,138 @@
 		const lineMat = new THREE.MeshStandardMaterial({ color: 0xb9cada, roughness: 0.72, metalness: 0.08 });
 
 		function stage(title, text) {
-			hudTitle.textContent = title;
+			hudTitle.textContent = activeStageRoundPrefix && !String(title).startsWith("Round ")
+				? `${activeStageRoundPrefix} ${title}`
+				: title;
 			hudText.textContent = text;
 			hud.classList.add("show");
 		}
 
 		const STAGE_DELAY_MS = 220;
+		const TABLE_TOWARD_CAMERA = 1.3;
+		const TABLE_SCALE = 1.1;
+		const SHIFT_SCHEDULE = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
+		let ANIMATION_SPEED = 1;
+		let BASE_ANIMATION_SPEED = 1;
+		let ROUND_SPEED_FACTOR = 1;
+		let activeStageRoundPrefix = "";
+		const CHAR_BITS_SPEED_MAX_FACTOR = 3;
+		const SBOX_SPEED_FACTORS = [1, 1, 1, 2.8, 4.0, 5.2, 6.4, 7.6];
+		const TURBO_ROUND_SPEED_FACTOR = 1000;
+		let turboToRound16Requested = false;
+
+		function setSkipRoundButtonFilled(isFilled) {
+			if (isFilled) {
+				skipRoundBtn.style.background = "linear-gradient(115deg, rgba(38, 117, 216, 0.95), rgba(59, 145, 255, 0.98))";
+				skipRoundBtn.style.boxShadow = "0 10px 22px rgba(47, 128, 237, 0.28)";
+				return;
+			}
+			skipRoundBtn.style.background = "linear-gradient(115deg, rgba(38, 117, 216, 0), rgba(59, 145, 255, 0))";
+			skipRoundBtn.style.boxShadow = "0 10px 22px rgba(47, 128, 237, 0)";
+		}
+
+		function setTurboSkipRequested() {
+			turboToRound16Requested = true;
+			skipRoundBtn.textContent = "Fast Forwarding";
+			skipRoundBtn.style.pointerEvents = "none";
+			skipRoundBtn.style.transform = "translateY(-1px)";
+			setSkipRoundButtonFilled(true);
+			setRoundSpeedFactor(TURBO_ROUND_SPEED_FACTOR);
+			gsap.to(skipRoundBtn, {
+				opacity: 0,
+				duration: 0.22,
+				ease: "power2.out",
+				onComplete: () => {
+					skipRoundBtn.style.display = "none";
+				}
+			});
+		}
+
+		function clampSpeed(value) {
+			if (!Number.isFinite(value)) return 1;
+			return Math.min(2000, Math.max(0.25, value));
+		}
+
+		function applyAnimationSpeed(multiplier) {
+			ANIMATION_SPEED = clampSpeed(multiplier);
+			BASE_ANIMATION_SPEED = ANIMATION_SPEED;
+			ROUND_SPEED_FACTOR = 1;
+			gsap.globalTimeline.timeScale(ANIMATION_SPEED);
+		}
+
+		function setRoundSpeedFactor(factor = 1) {
+			ROUND_SPEED_FACTOR = Math.max(0.25, factor);
+			resetSectionSpeed();
+		}
+
+		function setSectionSpeedFactor(factor = 1) {
+			ANIMATION_SPEED = clampSpeed(BASE_ANIMATION_SPEED * ROUND_SPEED_FACTOR * factor);
+			gsap.globalTimeline.timeScale(ANIMATION_SPEED);
+		}
+
+		function resetSectionSpeed() {
+			ANIMATION_SPEED = clampSpeed(BASE_ANIMATION_SPEED * ROUND_SPEED_FACTOR);
+			gsap.globalTimeline.timeScale(ANIMATION_SPEED);
+		}
 
 		function wait(ms) {
-			return new Promise(resolve => setTimeout(resolve, ms));
+			return new Promise(resolve => setTimeout(resolve, ms / ANIMATION_SPEED));
+		}
+
+		function animateFloorBounds(minX, maxX, depth = 140, duration = 0.42) {
+			const width = Math.max(20, maxX - minX);
+			const centerX = (minX + maxX) / 2;
+			const targetScaleX = width / FLOOR_BASE_WIDTH;
+			const targetScaleZ = depth / FLOOR_BASE_DEPTH;
+
+			gsap.killTweensOf(floor.scale);
+			gsap.killTweensOf(floor.position);
+			gsap.to(floor.scale, {
+				x: targetScaleX,
+				z: targetScaleZ,
+				duration: Math.min(0.18, duration),
+				ease: "power2.out"
+			});
+			gsap.to(floor.position, {
+				x: centerX,
+				duration: Math.min(0.18, duration),
+				ease: "power2.out"
+			});
+		}
+
+		function roundStageTitle(round, title) {
+			return round === 1 ? title : `Round ${round}/16: ${title}`;
+		}
+
+		function updateFloorForCharacterSpan(plainLength, keyLength, phase = "plaintext-intro") {
+			const spacing = 3.4;
+			const leftStartX = SHARED_ROW_AXIS.charLeftCenter;
+			const rightStartX = SHARED_ROW_AXIS.charLeftCenter + (7 * spacing) + SHARED_ROW_AXIS.charGap;
+			const safePlainLen = Math.max(1, plainLength);
+			const safeKeyLen = Math.max(1, keyLength);
+			const introPhase = phase === "plaintext-intro";
+			const effectivePlainLen = introPhase ? safePlainLen : Math.min(8, safePlainLen);
+
+			const leftEndX = leftStartX + ((effectivePlainLen - 1) * spacing);
+			const rightEndX = rightStartX + ((safeKeyLen - 1) * spacing);
+			const leftPadding = introPhase ? 32 : 10;
+			const rightPadding = introPhase ? 22 : 10;
+			const minX = Math.min(leftStartX, rightStartX) - leftPadding;
+			const maxX = Math.max(leftEndX, rightEndX) + rightPadding;
+
+			animateFloorBounds(minX, maxX, 140, 0.48);
+		}
+
+		function updateFloorForBitRows(leftTokens, rightTokens) {
+			if (!leftTokens || !rightTokens || leftTokens.length === 0 || rightTokens.length === 0) return;
+			const leftXs = leftTokens.map(t => (t && t.mesh && t.mesh.position) ? t.mesh.position.x : (t && typeof t.x === "number" ? t.x : null)).filter(x => Number.isFinite(x));
+			const rightXs = rightTokens.map(t => (t && t.mesh && t.mesh.position) ? t.mesh.position.x : (t && typeof t.x === "number" ? t.x : null)).filter(x => Number.isFinite(x));
+			if (leftXs.length === 0 || rightXs.length === 0) return;
+
+			const minX = Math.min(...leftXs);
+			const maxX = Math.max(...rightXs);
+			const padding = 30;
+			animateFloorBounds(minX - padding, maxX + padding, 140, 0.52);
 		}
 
 		function asciiRows() {
@@ -475,6 +687,62 @@
 			return bits;
 		}
 
+		function permuteBits(bits, table) {
+			return table.map(idx => bits[idx - 1]);
+		}
+
+		function xorBitArrays(a, b) {
+			const out = [];
+			for (let i = 0; i < a.length; i += 1) out.push(a[i] ^ b[i]);
+			return out;
+		}
+
+		function sboxSubstitution(bits48) {
+			const out = [];
+			for (let i = 0; i < 8; i += 1) {
+				const b = i * 6;
+				const row = (bits48[b] << 1) | bits48[b + 5];
+				const col = (bits48[b + 1] << 3) | (bits48[b + 2] << 2) | (bits48[b + 3] << 1) | bits48[b + 4];
+				const val = SBOX[i][row][col];
+				out.push((val >> 3) & 1, (val >> 2) & 1, (val >> 1) & 1, val & 1);
+			}
+			return out;
+		}
+
+		function deriveRoundKeys(keyBits64) {
+			const key56 = permuteBits(keyBits64, PC1);
+			let c = key56.slice(0, 28);
+			let d = key56.slice(28);
+			const roundKeys = [];
+			for (let i = 0; i < 16; i += 1) {
+				const shift = SHIFT_SCHEDULE[i];
+				c = rotateLeft(c, shift);
+				d = rotateLeft(d, shift);
+				roundKeys.push(permuteBits(c.concat(d), PC2));
+			}
+			return roundKeys;
+		}
+
+		function computeDesRoundStateAfter16(plainBits64, keyBits64) {
+			const ipBits = permuteBits(plainBits64, IP);
+			let l = ipBits.slice(0, 32);
+			let r = ipBits.slice(32);
+			const roundKeys = deriveRoundKeys(keyBits64);
+
+			for (let i = 0; i < 16; i += 1) {
+				const expanded = permuteBits(r, E);
+				const mixed = xorBitArrays(expanded, roundKeys[i]);
+				const sboxed = sboxSubstitution(mixed);
+				const pOut = permuteBits(sboxed, P);
+				const nextR = xorBitArrays(l, pOut);
+				l = r;
+				r = nextR;
+			}
+
+			return { left: l, right: r };
+		}
+
+
 		function cloneBitToken(token, kind = token.kind) {
 			return makeBit(token.bit, token.mesh.position.clone(), kind);
 		}
@@ -513,6 +781,96 @@
 			return new THREE.Box3().setFromPoints(points);
 		}
 
+		async function createParkedPlaintextComparisonCopy(sourceTokens) {
+			if (!sourceTokens || sourceTokens.length === 0) return [];
+			const parkedZ = -20;
+			const clones = sourceTokens.map((token) => {
+				const clone = cloneBitToken(token, token.kind || "data");
+				const src = tokenWorldPoint(token);
+				clone.mesh.position.copy(src);
+				primeTokenForReveal(clone, src, 0.001, 0);
+				return clone;
+			});
+
+			const parkingGuides = sourceTokens.map((token) => {
+				const guide = { mesh: new THREE.Object3D() };
+				const src = tokenWorldPoint(token);
+				guide.mesh.position.set(src.x, src.y, parkedZ);
+				return guide;
+			});
+			updateFloorForBitRows(sourceTokens, parkingGuides);
+			await fitCameraToTokens(sourceTokens.concat(parkingGuides), {
+				padding: 1.2,
+				duration: 0.85,
+				minDistance: 13,
+				extraDistance: 3.2
+			});
+			await wait(220);
+
+			stage("Plaintext", "Copy the plaintext row for later comparison.");
+			await wait(STAGE_DELAY_MS);
+
+			for (let i = 0; i < clones.length; i += 1) {
+				const src = clones[i].mesh.position.clone();
+				revealToken(clones[i], src.clone().add(new THREE.Vector3(0, 0.92, 0)), {
+					duration: 0.28,
+					delay: i * 0.0008,
+					arc: 0.05,
+					scale: 1,
+					scaleDuration: 0.22,
+					opacityDuration: 0.2
+				});
+			}
+			await wait(460);
+
+			for (let i = 0; i < clones.length; i += 1) {
+				const parked = clones[i].mesh.position.clone();
+				parked.z = parkedZ;
+				animateTokenTo(clones[i], parked, 0.36, i * 0.0008, 0.04);
+			}
+			await wait(620);
+			return clones;
+		}
+
+		async function overlayParkedPlaintextComparison(compareTokens, finalTokens) {
+			if (!compareTokens || compareTokens.length === 0 || !finalTokens || finalTokens.length === 0) return;
+			const count = Math.min(compareTokens.length, finalTokens.length);
+			if (count === 0) return;
+			const compareSet = compareTokens.slice(0, count);
+			const finalSet = finalTokens.slice(0, count);
+
+			stage("Original plaintext bits above, encrypted bits below", "Overlay the original plaintext on the completed ciphertext.");
+			await wait(STAGE_DELAY_MS);
+			await fitCameraToTokens(compareSet.concat(finalSet), {
+				padding: 1.16,
+				duration: 0.9,
+				minDistance: 12.4,
+				extraDistance: 2.8
+			});
+			await wait(220);
+
+			for (let i = 0; i < count; i += 1) {
+				const target = tokenWorldPoint(finalTokens[i]).add(new THREE.Vector3(0, 0.72, 0));
+				animateTokenTo(compareTokens[i], target, 0.46, i * 0.0008, 0.08);
+				if (compareTokens[i].mesh.material) {
+					compareTokens[i].mesh.material.transparent = true;
+					gsap.to(compareTokens[i].mesh.material, {
+						opacity: 0.92,
+						duration: 0.26,
+						delay: i * 0.0008,
+						ease: "power2.out"
+					});
+				}
+			}
+			await wait(760);
+			await fitCameraToTokens(finalSet.concat(compareSet), {
+				padding: 1.08,
+				duration: 0.85,
+				minDistance: 10.8,
+				extraDistance: 1.6
+			});
+		}
+
 		function animateTokenTo(token, target, dur = 0.34, delay = 0, arc = 0.4) {
 			gsap.to(token.mesh.position, {
 				x: target.x,
@@ -531,6 +889,103 @@
 			});
 			gsap.to(token.mesh.position, {
 				y: target.y,
+				duration: dur,
+				delay,
+				ease: "power2.inOut"
+			});
+		}
+
+		function setTokenScale(token, scale = 1) {
+			if (!token || !token.mesh) return;
+			token.mesh.scale.set(scale, scale, scale);
+		}
+
+		function setTokenOpacity(token, opacity) {
+			if (!token || !token.mesh || !token.mesh.material) return;
+			token.mesh.material.transparent = true;
+			token.mesh.material.opacity = opacity;
+		}
+
+		function primeTokenForReveal(token, target = null, scale = 0.001, opacity = 0) {
+			if (!token || !token.mesh) return;
+			if (target) token.mesh.position.copy(target);
+			setTokenScale(token, scale);
+			setTokenOpacity(token, opacity);
+		}
+
+		function revealToken(token, target, options = {}) {
+			const {
+				duration = 0.34,
+				delay = 0,
+				arc = 0.4,
+				scale = 1,
+				scaleDuration = 0.28,
+				scaleEase = "back.out(1.7)",
+				opacity = 1,
+				opacityDuration = 0.24,
+				opacityEase = "power2.out"
+			} = options;
+			animateTokenTo(token, target, duration, delay, arc);
+			gsap.to(token.mesh.scale, {
+				x: scale,
+				y: scale,
+				z: scale,
+				duration: scaleDuration,
+				delay,
+				ease: scaleEase
+			});
+			if (token.mesh.material) {
+				token.mesh.material.transparent = true;
+				gsap.to(token.mesh.material, {
+					opacity,
+					duration: opacityDuration,
+					delay,
+					ease: opacityEase
+				});
+			}
+		}
+
+		function createHiddenBit(bit, pos, kind = "data", scale = 0.001) {
+			const token = makeBit(bit, pos, kind);
+			primeTokenForReveal(token, pos, scale, 0);
+			return token;
+		}
+
+		function revealTokens(tokens, targets, options = {}) {
+			tokens.forEach((token, i) => {
+				const target = targets[i];
+				if (!target) return;
+				revealToken(token, target, options);
+			});
+		}
+
+		function makeTextSprite(text, width, height, font, color, scaleX, scaleY) {
+			const canvas = document.createElement("canvas");
+			canvas.width = width;
+			canvas.height = height;
+			const ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, width, height);
+			ctx.fillStyle = color;
+			ctx.font = font;
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText(text, width / 2, height / 2);
+			const tex = new THREE.CanvasTexture(canvas);
+			const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
+			sprite.scale.set(scaleX, scaleY, 1);
+			return sprite;
+		}
+
+		function textSprite(text, width, height, font, color, scaleX, scaleY) {
+			return makeTextSprite(text, width, height, font, color, scaleX, scaleY);
+		}
+
+		function animateTokenToScaled(token, target, scale = 0.56, dur = 0.34, delay = 0, arc = 0.14) {
+			animateTokenTo(token, target, dur, delay, arc);
+			gsap.to(token.mesh.scale, {
+				x: scale,
+				y: scale,
+				z: scale,
 				duration: dur,
 				delay,
 				ease: "power2.inOut"
@@ -665,11 +1120,11 @@
 			table.activeRow = row;
 			row.material.emissiveIntensity = 0.9;
 			row.material.color.setHex(0xeaf3ff);
-			await wait(120);
+			await wait(28);
 			const targetY = -table.rowMeshes[idx].position.y;
 			await new Promise(resolve => gsap.to(table.rowLayer.position, {
 				y: targetY,
-				duration: 0.44,
+				duration: 0.32,
 				ease: "power2.inOut",
 				onComplete: resolve
 			}));
@@ -680,10 +1135,11 @@
 				duration: 0.01
 			});
 			gsap.to(row.material, { emissiveIntensity: 0.66, duration: 0.16, yoyo: true, repeat: 1 });
-			await wait(180);
+			await wait(38);
 		}
 
 		async function charBitsJourney(text, side = "left", kind = "data") {
+			setSectionSpeedFactor(1);
 			const chars = text.split("");
 			const charTrack = new THREE.Group();
 			charTrack.userData.dynamic = true;
@@ -698,24 +1154,73 @@
 
 			chars.forEach((ch, i) => {
 				const p = makeCharPanel(ch, i * spacing, 1.5, zBase, charTrack);
-				p.scale.set(0.1, 0.1, 0.1);
+				p.scale.set(0.001, 0.001, 0.001);
+				p.rotation.y = 0;
 				panels.push(p);
-				gsap.to(p.scale, { x: 2.9, y: 2.9, z: 2.9, duration: 0.32, delay: i * 0.05, ease: "back.out(1.9)" });
-				gsap.to(p.rotation, { y: Math.PI * 2, duration: 1.25, delay: i * 0.05, ease: "none" });
 			});
-			await wait(700);
 
-			const table = makeAsciiTable(side, true);
+			const revealTweens = panels.map(p => new Promise(resolve => {
+				gsap.to(p.scale, {
+					x: 2.9,
+					y: 2.9,
+					z: 2.9,
+					duration: 0.32,
+					ease: "back.out(1.9)",
+					onComplete: resolve
+				});
+			}));
 
-			const produced = [];
-			const overflow = [];
-			const first64 = [];
+			const spinTweens = panels.map(p => new Promise(resolve => {
+				gsap.to(p.rotation, {
+					y: Math.PI * 2,
+					duration: 1.0,
+					ease: "power2.inOut",
+					onComplete: () => {
+						p.rotation.y = 0;
+						resolve();
+					}
+				});
+			}));
 
-			let bitIdx = 0;
-			for (let i = 0; i < chars.length; i += 1) {
+			await Promise.all([
+				fitCameraToTokens(panels.map(mesh => ({ mesh })), {
+					padding: 1.08,
+					duration: 0.8,
+					minDistance: 9.8,
+					extraDistance: 1.5
+				}),
+				Promise.all(revealTweens),
+				Promise.all(spinTweens)
+			]);
+			await wait(240);
+
+			// Keep the ASCII table hidden during intro; create it only after first character zoom finishes.
+			let table = null;
+
+		const produced = [];
+		const overflow = [];
+		const first64 = [];
+		const bitAnimDurationMs = 340;
+		const bitAnimStepDelayMs = 16;
+		const bitAnimMaxDelayMs = bitAnimStepDelayMs * 7;
+
+		let bitIdx = 0;
+		const charRampDenominator = Math.max(1, chars.length - 4);
+		for (let i = 0; i < chars.length; i += 1) {
+				const charRampLinear = (i < 3 || chars.length <= 4)
+					? 0
+					: Math.min(1, (i - 3) / charRampDenominator);
+				const charRampProgress = 1 - Math.pow(1 - charRampLinear, 2.2);
+				const charSpeedFactor = 1 + (charRampProgress * (CHAR_BITS_SPEED_MAX_FACTOR - 1));
+				const bitDelayFactor = i < 3 ? 1 : Math.max(0.08, 1 - (0.92 * charRampProgress));
+				const settleDelayFactor = i < 3 ? 1 : Math.max(0.12, 1 - (0.88 * charRampProgress));
+				setSectionSpeedFactor(charSpeedFactor);
+				if (i === 0 && side === "right") {
+					updateFloorForCharacterSpan(8, chars.length, "key-intro");
+				}
 				await new Promise(resolve => gsap.to(charTrack.position, {
 					x: centerOffset - i * spacing,
-					duration: 0.42,
+					duration: 0.3,
 					ease: "power2.inOut",
 					onComplete: resolve
 				}));
@@ -725,8 +1230,13 @@
 				await moveCamera(
 					new THREE.Vector3(charWorld.x, 5.4, charWorld.z + 5.8),
 					new THREE.Vector3(charWorld.x, charWorld.y - 0.2, charWorld.z),
-					0.42
+					0.9
 				);
+
+				if (i === 0 && !table) {
+					table = makeAsciiTable("right", true);
+					await wait(120);
+				}
 
 				const code = chars[i].charCodeAt(0) & 0xff;
 				await focusAsciiRow(table, code);
@@ -744,17 +1254,20 @@
 
 					if (bitIdx < 64) {
 						first64.push(tok);
-						animateTokenTo(tok, underTarget, 0.34, 0.016 * (7 - b), 0.4);
+						animateTokenTo(tok, underTarget, 0.34, (0.016 * (7 - b)) * bitDelayFactor, 0.4);
 					} else {
 						overflow.push(tok);
-						animateTokenTo(tok, underTarget, 0.34, 0.016 * (7 - b), 0.4);
+						animateTokenTo(tok, underTarget, 0.34, (0.016 * (7 - b)) * bitDelayFactor, 0.4);
 					}
 					bitIdx += 1;
 				}
-				await wait(260);
+				// Do not pan to the next character until the current bit-drop animation is fully settled.
+				await wait((bitAnimDurationMs + bitAnimMaxDelayMs + 40) * settleDelayFactor);
+
 			}
 
-			await wait(840);
+			resetSectionSpeed();
+			await wait(480);
 			freezeTokensToWorld(produced);
 			panels.forEach((p, i) => {
 				gsap.to(p.position, { y: 2.4, duration: 0.3, delay: i * 0.02 });
@@ -849,24 +1362,33 @@
 			await Promise.all(tweens);
 		}
 
-		async function sendOverflowOffscreen(tokens, side = "left") {
-			const dest = new THREE.Vector3(side === "left" ? -24 : 24, -1.8, side === "left" ? 10 : -10);
-			tokens.forEach((t, i) => {
-				animateTokenTo(t, dest, 0.42, i * 0.002, 0.45);
-				gsap.to(t.mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.28, delay: 0.42 + i * 0.002, onComplete: () => removeObject(t.mesh) });
-			});
-			await wait(760);
+		function overflowOffscreenOrigin(side = "left") {
+			return new THREE.Vector3(side === "left" ? -24 : 24, -1.8, side === "left" ? 10 : -10);
 		}
 
-		async function splitIntoHalves(tokens64, side = "left", title = "Split") {
+		async function sendOverflowOffscreen(tokens, side = "left") {
+			if (!tokens || tokens.length === 0) return;
+			tokens.forEach((t) => {
+				const dest = t.mesh.position.clone();
+				dest.z = -15;
+				animateTokenTo(t, dest, 0.42, 0, 0.35);
+				if (t.mesh.material) {
+					t.mesh.material.transparent = true;
+					t.mesh.material.opacity = 0;
+				}
+			});
+			await wait(480);
+		}
+
+		async function splitIntoHalves(tokens64, side = "left", title = "Split", anchor = {}) {
 			if (!tokens64 || tokens64.length < 2 || (tokens64.length % 2) !== 0) return { left: [], right: [] };
 			const halfCount = tokens64.length / 2;
 			const step = SHARED_ROW_AXIS.bitSpacing;
 			const splitGap = SHARED_ROW_AXIS.halfSplitGap;
 			const currentXs = tokens64.map(t => t.mesh.position.x);
 			const centerX = (Math.min(...currentXs) + Math.max(...currentXs)) / 2;
-			const rowY = SHARED_ROW_AXIS.bitY;
-			const rowZ = SHARED_ROW_AXIS.bitZ;
+			const rowY = Number.isFinite(anchor.rowY) ? anchor.rowY : SHARED_ROW_AXIS.bitY;
+			const rowZ = Number.isFinite(anchor.rowZ) ? anchor.rowZ : SHARED_ROW_AXIS.bitZ;
 
 			let leftStart = centerX - ((halfCount - 1) * step) - (splitGap / 2);
 			let rightStart = centerX + (splitGap / 2);
@@ -900,7 +1422,7 @@
 			const leftTargets = layoutLine(halfCount, leftStart, rowY, rowZ, step);
 			const rightTargets = layoutLine(halfCount, rightStart, rowY, rowZ, step);
 
-			stage(title, "First 32 bits become left half, next 32 become right half.");
+			stage(title, "Split the block into L and R halves.");
 			await wait(STAGE_DELAY_MS);
 			for (let i = 0; i < halfCount; i += 1) {
 				animateTokenTo(tokens64[i], leftTargets[i], 0.24, 0, 0.2);
@@ -947,22 +1469,50 @@
 			const cx = bounds ? (bounds.min.x + bounds.max.x) / 2 : (side === "left" ? -6 : 6);
 			const z = bounds ? (bounds.max.z + 2.5) : 3.0;
 
+			await fitCameraToTokens(bits64, {
+				padding: 1.06,
+				duration: 0.72,
+				minDistance: 10.6,
+				extraDistance: 1.6
+			});
+
 			await moveCamera(
-				new THREE.Vector3(cx, 8.4, z + 8.8),
-				new THREE.Vector3(cx, -1.15, z + 0.1),
+				new THREE.Vector3(cx, 9.9, z + 14.7),
+				new THREE.Vector3(cx, -1.05, z + 0.85),
 				1.0
 			);
 
 			const tableGroup = new THREE.Group();
 			tableGroup.userData.dynamic = true;
-			tableGroup.position.set(cx, -2.1, z + 0.12);
+			tableGroup.position.set(cx, -2.6, z + 0.16 + TABLE_TOWARD_CAMERA);
 			scene.add(tableGroup);
 
-			const plateMat = new THREE.MeshStandardMaterial({ color: 0xe6eef8, roughness: 0.74, metalness: 0.1, transparent: true, opacity: 0 });
-			const plate = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.14, 8.8), plateMat);
+			const ipCols = 8;
+			const ipDx = 0.47 * TABLE_SCALE;
+			const ipDz = 0.47 * TABLE_SCALE;
+			const ipRows = 8;
+			const ipPlateW = (ipCols - 1) * ipDx + (ipDx * 1.04);
+			const ipPlateD = (ipRows - 1) * ipDz + (ipDz * 1.04);
+			const plateMat = new THREE.MeshStandardMaterial({ color: 0xe6eef8, roughness: 0.72, metalness: 0.12, transparent: true, opacity: 0 });
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(ipPlateW, 0.075, ipPlateD), plateMat);
+			const rimMat = new THREE.MeshStandardMaterial({ color: 0xd7e3f0, roughness: 0.76, metalness: 0.08, transparent: true, opacity: 0 });
+			const rim = new THREE.Mesh(new THREE.BoxGeometry(ipPlateW + 0.18, 0.11, ipPlateD + 0.18), rimMat);
+			rim.position.y = -0.03;
+			tableGroup.add(rim);
 			tableGroup.add(plate);
 
-			const slots = layoutGrid(64, 8, cx, -2.0, z + 0.12, 0.62, 0.62);
+			const slots = layoutGrid(64, ipCols, cx, -2.38, z + 0.16 + TABLE_TOWARD_CAMERA, ipDx, ipDz);
+			const wells = [];
+			const wellMats = [];
+			slots.forEach(slot => {
+				const mat = new THREE.MeshStandardMaterial({ color: 0xd2deeb, roughness: 0.84, metalness: 0.03, transparent: true, opacity: 0 });
+				const well = new THREE.Mesh(new THREE.BoxGeometry(ipDx * 0.74, 0.045, ipDz * 0.74), mat);
+				well.position.set(slot.x, -2.57, slot.z);
+				well.userData.dynamic = true;
+				scene.add(well);
+				wells.push(well);
+				wellMats.push(mat);
+			});
 			const labels = [];
 			for (let i = 0; i < 64; i += 1) {
 				const cv = document.createElement("canvas");
@@ -976,39 +1526,53 @@
 				ctx.fillText(String(IP[i]).padStart(2, "0"), 60, 30);
 				const tex = new THREE.CanvasTexture(cv);
 				const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
-				spr.scale.set(0.34, 0.17, 1);
-				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.22, 0));
+				spr.scale.set(0.24, 0.12, 1);
+				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.15, 0));
 				spr.userData.dynamic = true;
 				scene.add(spr);
 				labels.push(spr);
 			}
 
 			await new Promise(resolve => gsap.to(plateMat, { opacity: 1, duration: 0.32, ease: "power2.out", onComplete: resolve }));
+			gsap.to(rimMat, { opacity: 1, duration: 0.26, ease: "power2.out" });
+			wellMats.forEach((mat, i) => gsap.to(mat, { opacity: 1, duration: 0.16, delay: i * 0.0015 }));
 			labels.forEach((spr, i) => gsap.to(spr.material, { opacity: 1, duration: 0.18, delay: i * 0.003 }));
 			await wait(200);
 
 			const permuted = [];
+			const tableAssignments = [];
 			for (let i = 0; i < 64; i += 1) {
 				const token = bits64[IP[i] - 1];
 				permuted.push(token);
-				animateTokenTo(token, slots[i], 0.26, 0, 0.22);
+				tableAssignments.push({ token, target: slots[i], sourceX: originalRowTargets[IP[i] - 1].x, index: i });
+			}
+			tableAssignments.sort((a, b) => a.sourceX - b.sourceX || a.index - b.index);
+			for (const assignment of tableAssignments) {
+				animateTokenTo(assignment.token, assignment.target, 0.26, 0, 0.22);
 				await wait(36);
 			}
 			await wait(420);
 
-			permuted.forEach((t, i) => animateTokenTo(t, originalRowTargets[i], 0.3, i * 0.002, 0.16));
+			for (let i = 0; i < permuted.length; i += 1) {
+				animateTokenTo(permuted[i], originalRowTargets[i], 0.28, 0, 0.16);
+				await wait(18);
+			}
 			await wait(700);
 
 			await fitCameraToTokens(permuted, {
-				padding: 1.2,
-				duration: 0.8,
-				minDistance: 12.4,
-				extraDistance: 2.6
+				padding: 1.34,
+				duration: 0.95,
+				minDistance: 14.4,
+				extraDistance: 3.6
 			});
 
 			labels.forEach((spr, i) => {
 				gsap.to(spr.material, { opacity: 0, duration: 0.18, delay: i * 0.003, onComplete: () => removeObject(spr) });
 			});
+			wellMats.forEach((mat, i) => {
+				gsap.to(mat, { opacity: 0, duration: 0.16, delay: i * 0.001, onComplete: () => removeObject(wells[i]) });
+			});
+			gsap.to(rimMat, { opacity: 0, duration: 0.2, onComplete: () => removeObject(rim) });
 			gsap.to(plateMat, { opacity: 0, duration: 0.2, onComplete: () => removeObject(plate) });
 			gsap.to(tableGroup.position, {
 				y: tableGroup.position.y - 0.18,
@@ -1020,31 +1584,55 @@
 			return permuted;
 		}
 
-		async function showPermutedChoice1(key56, sourceIndices64) {
-			const bounds = tokenBounds(key56);
+		async function showPermutedChoice1(key64) {
+			const bounds = tokenBounds(key64);
 			const cx = bounds ? (bounds.min.x + bounds.max.x) / 2 : 6.5;
 			const z = bounds ? (bounds.max.z + 2.5) : 3.0;
 
-			await moveCamera(
-				new THREE.Vector3(cx, 8.0, z + 7.9),
-				new THREE.Vector3(cx, -1.05, z + 0.15),
-				0.98
-			);
+			await fitCameraToTokens(key64, {
+				padding: 1.16,
+				duration: 0.8,
+				minDistance: 11.7,
+				extraDistance: 3.2
+			});
 
-			const sourceIndexTo56 = new Map();
-			sourceIndices64.forEach((src, idx56) => sourceIndexTo56.set(src, idx56));
-			const pc1Map = PC1.map(v => sourceIndexTo56.get(v - 1));
+			await moveCamera(
+				new THREE.Vector3(cx, 9.5, z + 12.6),
+				new THREE.Vector3(cx, -0.95, z + 1.1),
+				1.0
+			);
 
 			const tableGroup = new THREE.Group();
 			tableGroup.userData.dynamic = true;
-			tableGroup.position.set(cx, -1.95, z + 0.1);
+			tableGroup.position.set(cx, -2.35, z + 0.14 + TABLE_TOWARD_CAMERA);
 			scene.add(tableGroup);
 
-			const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8f0fa, roughness: 0.74, metalness: 0.1, transparent: true, opacity: 0 });
-			const plate = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.14, 4.1), plateMat);
+			const pc1Cols = 7;
+			const pc1Dx = 0.52 * TABLE_SCALE;
+			const pc1Dz = 0.44 * TABLE_SCALE;
+			const pc1Rows = 8;
+			const pc1PlateW = (pc1Cols - 1) * pc1Dx + (pc1Dx * 1.04);
+			const pc1PlateD = (pc1Rows - 1) * pc1Dz + (pc1Dz * 1.04);
+			const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8f0fa, roughness: 0.72, metalness: 0.12, transparent: true, opacity: 0 });
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(pc1PlateW, 0.075, pc1PlateD), plateMat);
+			const rimMat = new THREE.MeshStandardMaterial({ color: 0xd8e5f2, roughness: 0.76, metalness: 0.08, transparent: true, opacity: 0 });
+			const rim = new THREE.Mesh(new THREE.BoxGeometry(pc1PlateW + 0.18, 0.11, pc1PlateD + 0.18), rimMat);
+			rim.position.y = -0.03;
+			tableGroup.add(rim);
 			tableGroup.add(plate);
 
-			const slots = layoutGrid(56, 14, cx, -1.9, z + 0.1, 0.6, 0.58);
+			const slots = layoutGrid(56, pc1Cols, cx, -2.12, z + 0.14 + TABLE_TOWARD_CAMERA, pc1Dx, pc1Dz);
+			const wells = [];
+			const wellMats = [];
+			slots.forEach(slot => {
+				const mat = new THREE.MeshStandardMaterial({ color: 0xd2deeb, roughness: 0.84, metalness: 0.03, transparent: true, opacity: 0 });
+				const well = new THREE.Mesh(new THREE.BoxGeometry(pc1Dx * 0.74, 0.045, pc1Dz * 0.74), mat);
+				well.position.set(slot.x, -2.31, slot.z);
+				well.userData.dynamic = true;
+				scene.add(well);
+				wells.push(well);
+				wellMats.push(mat);
+			});
 			const labels = [];
 			for (let i = 0; i < 56; i += 1) {
 				const cv = document.createElement("canvas");
@@ -1058,26 +1646,66 @@
 				ctx.fillText(String(PC1[i]).padStart(2, "0"), 60, 30);
 				const tex = new THREE.CanvasTexture(cv);
 				const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
-				spr.scale.set(0.32, 0.16, 1);
-				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.21, 0));
+				spr.scale.set(0.24, 0.12, 1);
+				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.15, 0));
 				spr.userData.dynamic = true;
 				scene.add(spr);
 				labels.push(spr);
 			}
 
 			await new Promise(resolve => gsap.to(plateMat, { opacity: 1, duration: 0.3, ease: "power2.out", onComplete: resolve }));
+			gsap.to(rimMat, { opacity: 1, duration: 0.26, ease: "power2.out" });
+			wellMats.forEach((mat, i) => gsap.to(mat, { opacity: 1, duration: 0.16, delay: i * 0.0015 }));
 			labels.forEach((spr, i) => gsap.to(spr.material, { opacity: 1, duration: 0.16, delay: i * 0.003 }));
 			await wait(200);
 
 			const pc1Out = [];
+			const pc1Assignments = [];
+			const keyRowStartX = tokenBounds(key64)?.min.x ?? cx - ((64 - 1) * SHARED_ROW_AXIS.bitSpacing) / 2;
 			for (let i = 0; i < 56; i += 1) {
-				const token = key56[pc1Map[i]];
+				const token = key64[PC1[i] - 1];
 				pc1Out.push(token);
-				animateTokenTo(token, slots[i], 0.26, 0, 0.2);
+				pc1Assignments.push({ token, target: slots[i], sourceX: keyRowStartX + ((PC1[i] - 1) * SHARED_ROW_AXIS.bitSpacing), index: i });
+			}
+			pc1Assignments.sort((a, b) => a.sourceX - b.sourceX || a.index - b.index);
+			for (const assignment of pc1Assignments) {
+				animateTokenTo(assignment.token, assignment.target, 0.26, 0, 0.2);
 				await wait(32);
 			}
 			await wait(360);
-			await arrangeRowWithGap(pc1Out, "right", true);
+
+			const dropped = [];
+			for (let i = 0; i < 64; i += 1) {
+				if ((i + 1) % 8 === 0) dropped.push(key64[i]);
+			}
+			for (let i = 0; i < dropped.length; i += 1) {
+				const token = dropped[i];
+				gsap.to(token.mesh.position, {
+					y: token.mesh.position.y + 0.55,
+					duration: 0.16,
+					delay: i * 0.035,
+					yoyo: true,
+					repeat: 1,
+					ease: "power1.out"
+				});
+				gsap.to(token.mesh.scale, {
+					x: 0.001,
+					y: 0.001,
+					z: 0.001,
+					duration: 0.22,
+					delay: 0.18 + i * 0.035,
+					onComplete: () => removeObject(token.mesh)
+				});
+			}
+			await wait(460);
+
+			const pc1RowStartX = tokenBounds(key64)?.min.x ?? rowBounds.right?.start ?? 0;
+			const pc1RowTargets = layoutLine(pc1Out.length, pc1RowStartX, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ, SHARED_ROW_AXIS.bitSpacing);
+			for (let i = 0; i < pc1Out.length; i += 1) {
+				animateTokenTo(pc1Out[i], pc1RowTargets[i], 0.28, 0, 0.18);
+				await wait(24);
+			}
+			await wait(360);
 			await fitCameraToTokens(pc1Out, {
 				padding: 1.18,
 				duration: 0.75,
@@ -1088,6 +1716,10 @@
 			labels.forEach((spr, i) => {
 				gsap.to(spr.material, { opacity: 0, duration: 0.18, delay: i * 0.003, onComplete: () => removeObject(spr) });
 			});
+			wellMats.forEach((mat, i) => {
+				gsap.to(mat, { opacity: 0, duration: 0.16, delay: i * 0.001, onComplete: () => removeObject(wells[i]) });
+			});
+			gsap.to(rimMat, { opacity: 0, duration: 0.2, onComplete: () => removeObject(rim) });
 			gsap.to(plateMat, { opacity: 0, duration: 0.2, onComplete: () => removeObject(plate) });
 			gsap.to(tableGroup.position, {
 				y: tableGroup.position.y - 0.16,
@@ -1095,7 +1727,7 @@
 				ease: "power1.inOut",
 				onComplete: () => removeObject(tableGroup)
 			});
-			await wait(220);
+			await wait(420);
 			return pc1Out;
 		}
 
@@ -1104,31 +1736,56 @@
 			const cx = bounds ? (bounds.min.x + bounds.max.x) / 2 : (side === "left" ? -4.7 : 4.7);
 			const z = bounds ? (bounds.max.z + 2.5) : (side === "left" ? 4.2 : 1.4);
 
+			await fitCameraToTokens(rHalf, {
+				padding: 1.08,
+				duration: 0.72,
+				minDistance: 10.4,
+				extraDistance: 1.6
+			});
+
 			await moveCamera(
-				new THREE.Vector3(cx, 7.6, z + 7.2),
-				new THREE.Vector3(cx, -0.9, z + 0.2),
+				new THREE.Vector3(cx, 7.6, z + 6.9),
+				new THREE.Vector3(cx, -1.05, z + 0.12),
 				0.9
 			);
 
 			const tableGroup = new THREE.Group();
 			tableGroup.userData.dynamic = true;
-			tableGroup.position.set(cx, -1.5, z);
+			tableGroup.position.set(cx, -1.95, z + 0.1 + TABLE_TOWARD_CAMERA);
 			scene.add(tableGroup);
 
+			const eCols = 6;
+			const eDx = 0.52 * TABLE_SCALE;
+			const eDz = 0.42 * TABLE_SCALE;
+			const eRows = 8;
+			const ePlateW = (eCols - 1) * eDx + (eDx * 1.04);
+			const ePlateD = (eRows - 1) * eDz + (eDz * 1.04);
 			const plateMat = new THREE.MeshStandardMaterial({
 				color: 0xdfebf8,
-				roughness: 0.74,
+				roughness: 0.72,
 				metalness: 0.12,
 				transparent: true,
 				opacity: 0
 			});
-			const plate = new THREE.Mesh(
-				new THREE.BoxGeometry(7.2, 0.14, 2.8),
-				plateMat
-			);
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(ePlateW, 0.075, ePlateD), plateMat);
+			const rimMat = new THREE.MeshStandardMaterial({ color: 0xd2e1ef, roughness: 0.76, metalness: 0.08, transparent: true, opacity: 0 });
+			const rim = new THREE.Mesh(new THREE.BoxGeometry(ePlateW + 0.16, 0.11, ePlateD + 0.16), rimMat);
+			rim.position.y = -0.03;
+			tableGroup.add(rim);
 			tableGroup.add(plate);
 
-			const slots = layoutGrid(48, 8, cx, -1.35, z, 0.58, 0.48);
+			const slots = layoutGrid(48, eCols, cx, -1.72, z + 0.1 + TABLE_TOWARD_CAMERA, eDx, eDz);
+			const wells = [];
+			const wellMats = [];
+			slots.forEach(slot => {
+				const mat = new THREE.MeshStandardMaterial({ color: 0xd2deeb, roughness: 0.84, metalness: 0.03, transparent: true, opacity: 0 });
+				const well = new THREE.Mesh(new THREE.BoxGeometry(eDx * 0.74, 0.045, eDz * 0.74), mat);
+				well.position.set(slot.x, -1.93, slot.z);
+				well.userData.dynamic = true;
+				scene.add(well);
+				wells.push(well);
+				wellMats.push(mat);
+			});
 			const mapLabels = [];
 			for (let i = 0; i < 48; i += 1) {
 				const cv = document.createElement("canvas");
@@ -1143,8 +1800,8 @@
 				const tex = new THREE.CanvasTexture(cv);
 				const sprMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 });
 				const spr = new THREE.Sprite(sprMat);
-				spr.scale.set(0.28, 0.14, 1);
-				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.22, 0));
+				spr.scale.set(0.22, 0.11, 1);
+				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.15, 0));
 				spr.userData.dynamic = true;
 				scene.add(spr);
 				mapLabels.push(spr);
@@ -1156,6 +1813,8 @@
 				ease: "power2.out",
 				onComplete: resolve
 			}));
+			gsap.to(rimMat, { opacity: 1, duration: 0.26, ease: "power2.out" });
+			wellMats.forEach((mat, i) => gsap.to(mat, { opacity: 1, duration: 0.16, delay: i * 0.0015 }));
 			mapLabels.forEach((spr, i) => {
 				gsap.to(spr.material, {
 					opacity: 1,
@@ -1166,48 +1825,94 @@
 			});
 			await wait(240);
 
-			const out = [];
-			const usedSource = new Map();
-			for (let i = 0; i < 48; i += 1) {
+			const out = Array(48);
+			const stagingTokens = [];
+			const stagingTargets = [];
+			for (let i = 0; i < rHalf.length; i += 1) {
+				const srcPos = tokenWorldPoint(rHalf[i]);
+				const clone = cloneBitToken(rHalf[i], "data");
+				clone.mesh.position.copy(srcPos);
+				clone.mesh.scale.set(0.001, 0.001, 0.001);
+				stagingTokens.push(clone);
+				stagingTargets.push(new THREE.Vector3(srcPos.x, srcPos.y - 0.92, srcPos.z + 0.02));
+			}
+
+			for (let i = 0; i < stagingTokens.length; i += 1) {
+				gsap.to(stagingTokens[i].mesh.scale, { x: 1, y: 1, z: 1, duration: 0.44, ease: "back.out(1.6)" });
+				animateTokenTo(stagingTokens[i], stagingTargets[i], 0.82, 0, 0.42);
+				gsap.to(rHalf[i].mesh.scale, { x: 1.16, y: 1.16, z: 1.16, duration: 0.32, yoyo: true, repeat: 1, ease: "power1.inOut" });
+			}
+			await wait(980);
+
+			const middleOrder = [];
+			const edgeOrder = [];
+			for (let g = 0; g < 8; g += 1) {
+				for (let c = 1; c <= 4; c += 1) middleOrder.push(g * 6 + c);
+			}
+			for (let g = 0; g < 8; g += 1) {
+				edgeOrder.push(g * 6);
+				edgeOrder.push(g * 6 + 5);
+			}
+			const firstPlacedBySrc = new Map();
+
+			const animateExpandedBit = async (i, edgePhase) => {
 				const srcIndex = E[i] - 1;
-				const src = rHalf[srcIndex];
-				let token = src;
-				const alreadyUsed = usedSource.has(srcIndex);
-				if (!alreadyUsed) {
-					usedSource.set(srcIndex, src);
-				} else {
-					token = cloneBitToken(src, "data");
-					token.mesh.position.copy(src.mesh.position);
+				let sourceToken = firstPlacedBySrc.get(srcIndex) || stagingTokens[srcIndex];
+				let token = sourceToken;
+				if (firstPlacedBySrc.has(srcIndex)) {
+					token = cloneBitToken(sourceToken, "data");
+					token.mesh.position.copy(sourceToken.mesh.position);
 					token.mesh.scale.set(0.001, 0.001, 0.001);
-					const popY = src.mesh.position.y + 0.28;
 					await new Promise(resolve => gsap.to(token.mesh.scale, {
 						x: 1,
 						y: 1,
 						z: 1,
-						duration: 0.18,
+						duration: 0.11,
 						ease: "back.out(1.6)",
 						onComplete: resolve
 					}));
 					await new Promise(resolve => gsap.to(token.mesh.position, {
-						y: popY,
-						duration: 0.14,
+						y: token.mesh.position.y + 0.24,
+						duration: 0.08,
 						ease: "power2.out",
 						onComplete: resolve
 					}));
+				} else {
+					firstPlacedBySrc.set(srcIndex, token);
 				}
-				out.push(token);
+				gsap.to(sourceToken.mesh.scale, { x: 1.14, y: 1.14, z: 1.14, duration: 0.08, yoyo: true, repeat: 1, ease: "power1.inOut" });
 
-				const colInSix = i % 6;
-				if (alreadyUsed && (colInSix === 0 || colInSix === 5)) {
-					await wait(130);
+				if (edgePhase) {
+					gsap.to(sourceToken.mesh.scale, { x: 1.2, y: 1.2, z: 1.2, duration: 0.1, yoyo: true, repeat: 1 });
+					token.mesh.scale.set(0.72, 0.72, 0.72);
+					gsap.to(token.mesh.scale, { x: 1, y: 1, z: 1, duration: 0.16, ease: "back.out(1.6)" });
 				}
 
+				out[i] = token;
 				animateTokenTo(token, slots[i], 0.28, 0, 0.28);
-				await wait(alreadyUsed ? 95 : 55);
-			}
-			await wait(700);
-			return out;
-		}
+			await wait(edgePhase ? 65 : 32);
+		};
+
+		for (const i of middleOrder) await animateExpandedBit(i, false);
+		for (const i of edgeOrder) await animateExpandedBit(i, true);
+
+		mapLabels.forEach((spr, i) => {
+			gsap.to(spr.material, { opacity: 0, duration: 0.16, delay: i * 0.0015, onComplete: () => removeObject(spr) });
+		});
+		wellMats.forEach((mat, i) => {
+			gsap.to(mat, { opacity: 0, duration: 0.14, delay: i * 0.001, onComplete: () => removeObject(wells[i]) });
+		});
+		gsap.to(rimMat, { opacity: 0, duration: 0.18, onComplete: () => removeObject(rim) });
+		gsap.to(plateMat, { opacity: 0, duration: 0.18, onComplete: () => removeObject(plate) });
+		gsap.to(tableGroup.position, {
+			y: tableGroup.position.y - 0.14,
+			duration: 0.18,
+			ease: "power1.inOut",
+			onComplete: () => removeObject(tableGroup)
+		});
+		await wait(420);
+		return out;
+	}
 
 		function fadeTokenAway(token, delay = 0, duration = 0.22) {
 			token.mesh.material.transparent = true;
@@ -1238,24 +1943,51 @@
 			const cx = bounds ? (bounds.min.x + bounds.max.x) / 2 : (side === "right" ? 4.8 : -4.8);
 			const z = bounds ? (bounds.max.z + 2.5) : (side === "right" ? 1.8 : 4.0);
 
+			await fitCameraToTokens(shiftedTokens, {
+				padding: 1.08,
+				duration: 0.72,
+				minDistance: 10.6,
+				extraDistance: 1.6
+			});
+
 			await moveCamera(
-				new THREE.Vector3(cx, 7.6, z + 7.2),
-				new THREE.Vector3(cx, -0.9, z + 0.2),
+				new THREE.Vector3(cx, 8.6, z + 10.7),
+				new THREE.Vector3(cx, -0.95, z + 0.85),
 				0.9
 			);
 
 			const tableGroup = new THREE.Group();
 			tableGroup.userData.dynamic = true;
-			tableGroup.position.set(cx, -1.45, z);
+			tableGroup.position.set(cx, -1.9, z + 0.1 + TABLE_TOWARD_CAMERA);
 			scene.add(tableGroup);
 
-			const plate = new THREE.Mesh(
-				new THREE.BoxGeometry(7.4, 0.14, 2.8),
-				new THREE.MeshStandardMaterial({ color: 0xe8f0fa, roughness: 0.74, metalness: 0.12 })
-			);
+			const pc2Cols = 12;
+			const pc2Dx = 0.44 * TABLE_SCALE;
+			const pc2Dz = 0.4 * TABLE_SCALE;
+			const pc2Rows = 4;
+			const pc2PlateW = (pc2Cols - 1) * pc2Dx + (pc2Dx * 1.04);
+			const pc2PlateD = (pc2Rows - 1) * pc2Dz + (pc2Dz * 1.04);
+			const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8f0fa, roughness: 0.72, metalness: 0.12, transparent: true, opacity: 0 });
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(pc2PlateW, 0.075, pc2PlateD), plateMat);
+			const rimMat = new THREE.MeshStandardMaterial({ color: 0xd8e5f2, roughness: 0.76, metalness: 0.08, transparent: true, opacity: 0 });
+			const rim = new THREE.Mesh(new THREE.BoxGeometry(pc2PlateW + 0.16, 0.11, pc2PlateD + 0.16), rimMat);
+			rim.position.y = -0.03;
+			tableGroup.add(rim);
 			tableGroup.add(plate);
 
-			const slots = layoutGrid(48, 12, cx, -1.3, z, 0.55, 0.5);
+			const slots = layoutGrid(48, pc2Cols, cx, -1.66, z + 0.1 + TABLE_TOWARD_CAMERA, pc2Dx, pc2Dz);
+			const wells = [];
+			const wellMats = [];
+			slots.forEach(slot => {
+				const mat = new THREE.MeshStandardMaterial({ color: 0xd2deeb, roughness: 0.84, metalness: 0.03, transparent: true, opacity: 0 });
+				const well = new THREE.Mesh(new THREE.BoxGeometry(pc2Dx * 0.74, 0.045, pc2Dz * 0.74), mat);
+				well.position.set(slot.x, -1.88, slot.z);
+				well.userData.dynamic = true;
+				scene.add(well);
+				wells.push(well);
+				wellMats.push(mat);
+			});
+			const labels = [];
 			for (let i = 0; i < 48; i += 1) {
 				const cv = document.createElement("canvas");
 				cv.width = 120;
@@ -1267,21 +1999,32 @@
 				ctx.textBaseline = "middle";
 				ctx.fillText(String(PC2[i]).padStart(2, "0"), 60, 30);
 				const tex = new THREE.CanvasTexture(cv);
-				const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
-				spr.scale.set(0.28, 0.14, 1);
-				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.22, 0));
+				const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
+				spr.scale.set(0.2, 0.1, 1);
+				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.145, 0));
 				spr.userData.dynamic = true;
 				scene.add(spr);
+				labels.push(spr);
 			}
+
+			await new Promise(resolve => gsap.to(plateMat, { opacity: 1, duration: 0.26, ease: "power2.out", onComplete: resolve }));
+			gsap.to(rimMat, { opacity: 1, duration: 0.24, ease: "power2.out" });
+			wellMats.forEach((mat, i) => gsap.to(mat, { opacity: 1, duration: 0.14, delay: i * 0.001 }));
+			labels.forEach((spr, i) => gsap.to(spr.material, { opacity: 1, duration: 0.14, delay: i * 0.0015 }));
 
 			const selected = [];
 			const used = new Set();
+			const pc2Assignments = [];
 			for (let i = 0; i < 48; i += 1) {
 				const srcIndex = PC2[i] - 1;
 				const token = shiftedTokens[srcIndex];
 				selected.push(token);
 				used.add(srcIndex);
-				animateTokenTo(token, slots[i], 0.28, 0, 0.26);
+				pc2Assignments.push({ token, target: slots[i], sourceX: tokenWorldPoint(token).x, index: i });
+			}
+			pc2Assignments.sort((a, b) => a.sourceX - b.sourceX || a.index - b.index);
+			for (const assignment of pc2Assignments) {
+				animateTokenTo(assignment.token, assignment.target, 0.28, 0, 0.26);
 				await wait(42);
 			}
 
@@ -1289,12 +2032,27 @@
 				if (!used.has(i)) fadeTokenAway(token, 0.2 + i * 0.003, 0.28);
 			});
 
+			labels.forEach((spr, i) => {
+				gsap.to(spr.material, { opacity: 0, duration: 0.14, delay: i * 0.001, onComplete: () => removeObject(spr) });
+			});
+			wellMats.forEach((mat, i) => {
+				gsap.to(mat, { opacity: 0, duration: 0.14, delay: i * 0.001, onComplete: () => removeObject(wells[i]) });
+			});
+			gsap.to(rimMat, { opacity: 0, duration: 0.18, onComplete: () => removeObject(rim) });
+			gsap.to(plateMat, { opacity: 0, duration: 0.18, onComplete: () => removeObject(plate) });
+			gsap.to(tableGroup.position, {
+				y: tableGroup.position.y - 0.14,
+				duration: 0.18,
+				ease: "power1.inOut",
+				onComplete: () => removeObject(tableGroup)
+			});
+
 			await wait(720);
 			return selected;
 		}
 
-		async function keyShiftAndContract(key64) {
-			stage("Key Halves and Shifts", "Split key bits to halves, then left-shift one side and right-shift the other.");
+		async function keyShiftAndContract(key64, roundIndex = 1) {
+			stage("Key Schedule", "Split the key halves and apply the round shift.");
 			await wait(STAGE_DELAY_MS);
 			await fitCameraToTokens(key64, {
 				padding: 1.12,
@@ -1302,7 +2060,15 @@
 				minDistance: 11.2,
 				extraDistance: 2.0
 			});
-			const halves = await splitIntoHalves(key64, "right", "Key Split C / D");
+
+			const keyBounds = tokenBounds(key64);
+			const keyCenter = keyBounds ? keyBounds.getCenter(new THREE.Vector3()) : null;
+			const keyRowY = keyCenter ? keyCenter.y : SHARED_ROW_AXIS.bitY;
+			const keyRowZ = keyCenter ? keyCenter.z : SHARED_ROW_AXIS.bitZ;
+			const halves = await splitIntoHalves(key64, "right", "Split to C / D", {
+				rowY: keyRowY,
+				rowZ: keyRowZ
+			});
 			await fitCameraToTokens(halves.left.concat(halves.right), {
 				padding: 1.14,
 				duration: 0.75,
@@ -1310,18 +2076,21 @@
 				extraDistance: 2.1
 			});
 
-			const SHIFT_SCHEDULE = [1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1];
-			const roundIndex = 1;
 			const shift = SHIFT_SCHEDULE[Math.max(0, Math.min(15, roundIndex - 1))];
 			const shiftDirection = "left";
+			const nextLeft = shiftDirection === "left" ? rotateLeft(key64.slice(0, 28), shift) : rotateRight(key64.slice(0, 28), shift);
+			const nextRight = shiftDirection === "left" ? rotateLeft(key64.slice(28), shift) : rotateRight(key64.slice(28), shift);
+			const nextKey56 = nextLeft.concat(nextRight);
 
 			const leftBounds = tokenBounds(halves.left);
 			const rightBounds = tokenBounds(halves.right);
+			const leftCenter = leftBounds ? leftBounds.getCenter(new THREE.Vector3()) : null;
+			const rightCenter = rightBounds ? rightBounds.getCenter(new THREE.Vector3()) : null;
 			const step = SHARED_ROW_AXIS.bitSpacing;
 			const leftStart = leftBounds ? leftBounds.min.x : 0;
 			const rightStart = rightBounds ? rightBounds.min.x : (leftStart + (31 * step) + SHARED_ROW_AXIS.halfSplitGap);
-			const rowY = SHARED_ROW_AXIS.bitY;
-			const rowZ = SHARED_ROW_AXIS.bitZ;
+			const rowY = ((leftCenter ? leftCenter.y : workingRowY) + (rightCenter ? rightCenter.y : workingRowY)) / 2;
+			const rowZ = ((leftCenter ? leftCenter.z : workingRowZ) + (rightCenter ? rightCenter.z : workingRowZ)) / 2;
 
 			const c = shiftDirection === "left" ? rotateLeft(halves.left, shift) : rotateRight(halves.left, shift);
 			const d = shiftDirection === "left" ? rotateLeft(halves.right, shift) : rotateRight(halves.right, shift);
@@ -1343,16 +2112,46 @@
 				end: Math.max(cTargets[cTargets.length - 1].x, dTargets[dTargets.length - 1].x)
 			};
 
-			stage("Contraction Permutation", "48 key bits are selected in contraction order.");
+			stage("Permuted Choice 2", "Select the 48-bit round subkey.");
 			await wait(STAGE_DELAY_MS);
 			const merged = c.concat(d);
-			const key48 = await showContractionPermutation(merged, "right");
+			const workingKey = [];
+			for (let i = 0; i < merged.length; i += 1) {
+				const src = tokenWorldPoint(merged[i]);
+				const clone = cloneBitToken(merged[i], "key");
+				clone.mesh.position.copy(src);
+				clone.mesh.scale.set(0.001, 0.001, 0.001);
+				workingKey.push(clone);
+				gsap.to(clone.mesh.scale, {
+					x: 1,
+					y: 1,
+					z: 1,
+					duration: 0.44,
+					ease: "back.out(1.6)"
+				});
+				animateTokenTo(clone, new THREE.Vector3(src.x, src.y - 0.82, src.z + 0.3), 0.82, 0, 0.42);
+				gsap.to(merged[i].mesh.scale, {
+					x: 1.16,
+					y: 1.16,
+					z: 1.16,
+					duration: 0.32,
+					yoyo: true,
+					repeat: 1,
+					ease: "power1.inOut"
+				});
+			}
+			await wait(980);
+
+			stage("Permuted Choice 2", "Select the 48-bit round subkey.");
+			await wait(STAGE_DELAY_MS);
+			const key48 = await showContractionPermutation(workingKey, "right");
+
 			await wait(220);
-			return key48;
+			return { key48, nextKey56 };
 		}
 
 		async function animateInitialPermutation(bits64) {
-			stage("Initial Permutation (IP)", "DES first applies IP, then the 64-bit block is split into L0 and R0.");
+			stage("Initial Permutation", "Apply IP to the 64-bit block.");
 			await moveCamera(new THREE.Vector3(0, 8.4, 14.2), new THREE.Vector3(0, -0.4, 0.5), 1.1);
 
 			const sourceSlots = layoutGrid(64, 8, -5.7, -0.4, 0.6, 0.56, 0.56);
@@ -1445,42 +2244,126 @@
 		}
 
 		async function xorOverlay(data48, key48) {
-			stage("XOR Overlay", "Data and round-key bits stack with spacing, pre-color predicted XOR, then merge.");
+			stage("XOR", "Combine the data and subkey bits.");
 			await wait(STAGE_DELAY_MS);
-			await moveCamera(new THREE.Vector3(1.4, 7.4, 11.5), new THREE.Vector3(1.4, -0.4, 2.4), 0.95);
 
-			const topSlots = layoutGrid(48, 12, 1.4, 0.38, 2.3, 0.52, 0.52);
-			const lowSlots = layoutGrid(48, 12, 1.4, -1.0, 2.3, 0.52, 0.52);
-			const outSlots = layoutGrid(48, 12, 1.4, -0.32, 3.8, 0.52, 0.52);
+			const allTokens = data48.concat(key48);
+			const combinedBounds = tokenBounds(allTokens);
+			const centerZ = combinedBounds ? combinedBounds.max.z + 0.7 : 2.6;
 
-			data48.forEach((t, i) => animateTokenTo(t, topSlots[i], 0.28, i * 0.006, 0.22));
-			key48.forEach((t, i) => animateTokenTo(t, lowSlots[i], 0.28, i * 0.006, 0.22));
-			await wait(560);
+			await fitCameraToTokens(allTokens, {
+				padding: 1.18,
+				duration: 0.92,
+				minDistance: 14.6,
+				extraDistance: 3.2
+			});
+			await moveCamera(
+				new THREE.Vector3(0, 8.8, centerZ + 20.4),
+				new THREE.Vector3(0, -0.15, centerZ),
+				0.95
+			);
 
-			const out = [];
+			const rowSpacing = 0.38;
+			const rowStartX = -((48 - 1) * rowSpacing) / 2;
+			const xorRowZ = centerZ + 5.6;
+			const plaintextTargets = layoutLine(48, rowStartX, 0.86, xorRowZ, rowSpacing);
+			const keyTargets = layoutLine(48, rowStartX, -0.86, xorRowZ, rowSpacing);
+			const collisionY = -0.78;
+			const resultTargets = layoutLine(48, rowStartX, collisionY, xorRowZ, rowSpacing);
+
 			for (let i = 0; i < 48; i += 1) {
-				const predicted = data48[i].bit ^ key48[i].bit;
-				gsap.to(data48[i].mesh.material.emissive, { r: predicted ? 0.08 : 0.25, g: predicted ? 0.32 : 0.30, b: 0.65, duration: 0.15 });
-				gsap.to(key48[i].mesh.material.emissive, { r: predicted ? 0.08 : 0.25, g: predicted ? 0.32 : 0.30, b: 0.65, duration: 0.15 });
-			}
-			await wait(220);
-
-			for (let i = 0; i < 48; i += 1) {
-				const bit = data48[i].bit ^ key48[i].bit;
-				const tok = makeBit(bit, new THREE.Vector3(topSlots[i].x, -0.32, topSlots[i].z), "xor");
-				out.push(tok);
-				animateTokenTo(tok, outSlots[i], 0.24, i * 0.006, 0.14);
-
-				gsap.to(data48[i].mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.2, delay: i * 0.003, onComplete: () => removeObject(data48[i].mesh) });
-				gsap.to(key48[i].mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.2, delay: i * 0.003, onComplete: () => removeObject(key48[i].mesh) });
+				animateTokenTo(data48[i], plaintextTargets[i], 0.34, 0, 0.18);
+				animateTokenTo(key48[i], keyTargets[i], 0.34, 0, 0.18);
+				await wait(24);
 			}
 
-			await wait(840);
-			return out;
+			await wait(360);
+
+			const collisionTweens = data48.map((token, i) => new Promise(resolve => {
+				gsap.to(token.mesh.position, {
+					y: collisionY,
+					duration: 0.96,
+					ease: "power2.inOut",
+					onComplete: resolve
+				});
+				gsap.to(token.mesh.scale, {
+					x: 1.05,
+					y: 1.05,
+					z: 1.05,
+					duration: 0.96,
+					ease: "power2.inOut"
+				});
+				gsap.to(key48[i].mesh.scale, {
+					x: 1.08,
+					y: 1.08,
+					z: 1.08,
+					duration: 0.96,
+					yoyo: true,
+					repeat: 1,
+					ease: "power1.inOut"
+				});
+			}));
+
+			await Promise.all(collisionTweens);
+
+			const xorValues = data48.map((token, i) => token.bit ^ key48[i].bit);
+			const resultTokens = [];
+
+			xorValues.forEach((bit, i) => {
+				const resultSpawn = resultTargets[i].clone();
+				resultSpawn.y -= 0.34;
+				const result = makeBit(bit, resultSpawn, "xor");
+				result.mesh.scale.set(0.001, 0.001, 0.001);
+				resultTokens.push(result);
+				gsap.to(result.mesh.scale, { x: 1, y: 1, z: 1, duration: 0.22, ease: "back.out(2.4)" });
+				glowBitToken(result, bit, bit ? 0.54 : 0.24);
+				animateTokenTo(result, resultTargets[i], 0.28, 0, 0.52);
+				gsap.to(result.mesh.position, {
+					y: resultTargets[i].y + 0.6,
+					duration: 0.14,
+					delay: 0.05,
+					yoyo: true,
+					repeat: 1,
+					ease: "power1.out"
+				});
+				data48[i].mesh.material.transparent = true;
+				key48[i].mesh.material.transparent = true;
+				gsap.to(data48[i].mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.28, ease: "power2.in", delay: 0.02 });
+				gsap.to(key48[i].mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.28, ease: "power2.in", delay: 0.02 });
+				gsap.to(data48[i].mesh.material, { opacity: 0, duration: 0.24, delay: 0.03, onComplete: () => removeObject(data48[i].mesh) });
+				gsap.to(key48[i].mesh.material, { opacity: 0, duration: 0.24, delay: 0.03, onComplete: () => removeObject(key48[i].mesh) });
+			});
+
+			await wait(620);
+			return resultTokens;
 		}
 
 		function bitsFromTokens(tokens) {
 			return tokens.map(t => t.bit);
+		}
+
+		function glowBitToken(token, bit, intensity = 0.42) {
+			const color = new THREE.Color(bit ? 0x2f80ed : 0xe8edf3);
+			const emissive = new THREE.Color(bit ? 0x144487 : 0x64788f);
+			gsap.to(token.mesh.material.color, {
+				r: color.r,
+				g: color.g,
+				b: color.b,
+				duration: 0.24,
+				ease: "power2.out"
+			});
+			gsap.to(token.mesh.material.emissive, {
+				r: emissive.r,
+				g: emissive.g,
+				b: emissive.b,
+				duration: 0.24,
+				ease: "power2.out"
+			});
+			gsap.to(token.mesh.material, {
+				emissiveIntensity: intensity,
+				duration: 0.24,
+				ease: "power2.out"
+			});
 		}
 
 		function sboxTransform(bits48) {
@@ -1496,75 +2379,1414 @@
 		}
 
 		async function sboxJourney(tokens48) {
-			stage("S-Box Journey", "Bits descend through 8 persistent S-boxes, one by one, and emerge as 32 bits.");
-			await moveCamera(new THREE.Vector3(1.2, 8.2, 14), new THREE.Vector3(1.2, -0.6, 4.2), 1.0);
-
-			const centers = layoutGrid(8, 8, 1.2, -0.2, 4.4, 2.2, 0.1);
-			const sboxes = [];
-			for (let i = 0; i < 8; i += 1) {
-				const box = new THREE.Mesh(
-					new THREE.BoxGeometry(1.4, 1.2, 1.4),
-					new THREE.MeshStandardMaterial({ color: 0xe5edf7, roughness: 0.62, metalness: 0.16, emissive: 0x31567f, emissiveIntensity: 0.08, transparent: true, opacity: 0.92 })
-				);
-				box.position.copy(centers[i]);
-				box.userData.dynamic = true;
-				scene.add(box);
-				sboxes.push(box);
-			}
+			setSectionSpeedFactor(1);
+			stage("S-Boxes", "Map each 6-bit group to 4 bits.");
 
 			const inputBits = bitsFromTokens(tokens48);
 			const outBits = sboxTransform(inputBits);
 			const outputs = [];
+			const inputBounds = tokenBounds(tokens48);
+			const inputCenter = inputBounds ? inputBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, -0.04, 3.4);
+			const baseInputY = inputCenter.y;
+			const baseInputZ = inputCenter.z;
+			const inputBitSpacing = 0.34;
+			const inputGroupGap = 0.92;
+			const groupedInputTargets = [];
+			const groupCentersX = [];
+
+			let groupedStartX = -(((48 - 1) * inputBitSpacing) + (7 * inputGroupGap)) / 2;
+			for (let g = 0; g < 8; g += 1) {
+				for (let j = 0; j < 6; j += 1) {
+					groupedInputTargets.push(new THREE.Vector3(groupedStartX, baseInputY, baseInputZ));
+					groupedStartX += inputBitSpacing;
+				}
+				groupCentersX.push(groupedInputTargets[(g * 6) + 2].x + (inputBitSpacing * 0.5));
+				if (g < 7) groupedStartX += inputGroupGap;
+			}
+
+			await fitCameraToTokens(tokens48, {
+				padding: 1.14,
+				duration: 0.72,
+				minDistance: 11.2,
+				extraDistance: 2.0
+			});
+			await moveCamera(
+				new THREE.Vector3(inputCenter.x, 8.6, baseInputZ + 12.7),
+				new THREE.Vector3(inputCenter.x, baseInputY - 0.16, baseInputZ),
+				0.72
+			);
+
+			stage("S-Boxes", "Split the 48 bits into 8 groups of 6.");
+			for (let i = 0; i < tokens48.length; i += 1) {
+				animateTokenTo(tokens48[i], groupedInputTargets[i], 0.32, i * 0.002, 0.16);
+			}
+			await wait(620);
+
+			const tableY = baseInputY - 1.95;
+			const tableZ = baseInputZ;
+			const outputY = tableY;
+			const outputZ = tableZ + 2.65;
+			const tableCenters = groupCentersX.map(x => new THREE.Vector3(x, tableY, tableZ));
+			const groupedOutputTargets = [];
+			for (let g = 0; g < 8; g += 1) {
+				groupedOutputTargets.push(layoutLine(4, tableCenters[g].x - 0.51, outputY, outputZ, 0.34));
+			}
 
 			for (let s = 0; s < 8; s += 1) {
-				stage("S-Box Journey", `Entering S${s + 1}: 6 bits in, 4 bits out.`);
+				const sboxSpeedFactor = SBOX_SPEED_FACTORS[s] ?? SBOX_SPEED_FACTORS[SBOX_SPEED_FACTORS.length - 1];
+				setSectionSpeedFactor(sboxSpeedFactor);
+				const tableCenter = tableCenters[s];
+				const tableGroup = new THREE.Group();
+				tableGroup.userData.dynamic = true;
+				tableGroup.position.copy(tableCenter);
+				scene.add(tableGroup);
+
 				await moveCamera(
-					new THREE.Vector3(centers[s].x, 5.9, centers[s].z + 4.5),
-					new THREE.Vector3(centers[s].x, -0.3, centers[s].z),
-					0.55
+					new THREE.Vector3(tableCenter.x, 8.9, tableCenter.z + 2.2),
+					new THREE.Vector3(tableCenter.x, tableCenter.y - 0.28, tableCenter.z),
+					0.66
 				);
+
+				const plateMat = new THREE.MeshStandardMaterial({ color: 0xe9f1fa, roughness: 0.82, metalness: 0.04, transparent: true, opacity: 0 });
+				const plate = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.08, 3.6), plateMat);
+				plate.position.set(0, -0.12, 0);
+				tableGroup.add(plate);
+
+				const rimMat = new THREE.MeshStandardMaterial({ color: 0xd4e2f0, roughness: 0.74, metalness: 0.04, transparent: true, opacity: 0 });
+				const rim = new THREE.Mesh(new THREE.BoxGeometry(6.58, 0.12, 3.78), rimMat);
+				rim.position.set(0, -0.16, 0);
+				tableGroup.add(rim);
+
+				const tableLegMat = new THREE.MeshStandardMaterial({ color: 0x9ab2cb, roughness: 0.8, metalness: 0.03, transparent: true, opacity: 0 });
+				const tableLegs = [];
+				[
+					[-2.95, -0.54, -1.65],
+					[2.95, -0.54, -1.65],
+					[-2.95, -0.54, 1.65],
+					[2.95, -0.54, 1.65]
+				].forEach(([x, y, z]) => {
+					const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.72, 0.16), tableLegMat);
+					leg.position.set(x, y, z);
+					tableGroup.add(leg);
+					tableLegs.push(leg);
+				});
+
+				const title = textSprite(`S${s + 1}`, 220, 80, "700 42px Menlo", "#2f4e6f", 0.92, 0.34);
+				title.position.set(0, 1.18, 0.18);
+				tableGroup.add(title);
+
+				const cellPositions = layoutGrid(64, 16, 0, 0.22, 0.0, 0.28, 0.28);
+				const cellMeshes = [];
+				const cellSprites = [];
+				for (let row = 0; row < 4; row += 1) {
+					for (let col = 0; col < 16; col += 1) {
+						const value = SBOX[s][row][col];
+						const cellIndex = row * 16 + col;
+						const cellMat = new THREE.MeshStandardMaterial({ color: 0xf7fbff, roughness: 0.74, metalness: 0.03, transparent: true, opacity: 0 });
+						const cell = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.05, 0.22), cellMat);
+						cell.position.copy(cellPositions[cellIndex]);
+						cell.position.z -= 0.18;
+						tableGroup.add(cell);
+						const valueLabel = textSprite(String(value), 90, 56, "700 28px Menlo", "#355c85", 0.16, 0.12);
+						valueLabel.position.copy(cell.position).add(new THREE.Vector3(0, 0.12, 0.01));
+						tableGroup.add(valueLabel);
+						cellMeshes.push(cell);
+						cellSprites.push(valueLabel);
+					}
+				}
+
+				const rowLabels = [];
+				for (let row = 0; row < 4; row += 1) {
+					const label = textSprite(String(row), 90, 56, "700 24px Menlo", "#355c85", 0.16, 0.12);
+					label.position.copy(layoutLine(4, -2.18, 0.22, 0.18, 0.28)[row]);
+					tableGroup.add(label);
+					rowLabels.push(label);
+				}
 
 				const inStart = s * 6;
 				const outStart = s * 4;
+				const entering = tokens48.slice(inStart, inStart + 6);
+				const row = (inputBits[inStart] << 1) | inputBits[inStart + 5];
+				const col = (inputBits[inStart + 1] << 3) | (inputBits[inStart + 2] << 2) | (inputBits[inStart + 3] << 1) | inputBits[inStart + 4];
+				const tokenHalfHeight = 0.17;
+				const tableTopY = tableCenter.y - 0.12;
+				const tokenBaseY = tableTopY + tokenHalfHeight + 0.02;
+
+				const incomingY = tokenBaseY + 1.18;
+				const inputSlots = layoutLine(6, tableCenter.x - 0.7, incomingY, tableCenter.z + 0.08, 0.3);
+
+				const bitBoxWidth = 0.26;
+				const bitBoxGap = 0.02;
+				const bitStep = bitBoxWidth + bitBoxGap;
+
+				const rowBitY = tokenBaseY + 0.18;
+				const gridLeftEdgeX = tableCenter.x + cellPositions[0].x - (0.26 / 2);
+				const rowRightCenterX = gridLeftEdgeX - (bitBoxWidth / 2) - 0.01;
+				const rowLeftCenterX = rowRightCenterX - bitStep;
+				const rowBitPositions = [
+					new THREE.Vector3(rowLeftCenterX, rowBitY, tableCenter.z + cellPositions[row * 16].z),
+					new THREE.Vector3(rowRightCenterX, rowBitY, tableCenter.z + cellPositions[row * 16].z)
+				];
+
+				const colBitY = tokenBaseY + 0.54;
+				const colCenterX = tableCenter.x + cellPositions[col].x;
+				const colStartX = colCenterX - ((((4 * bitBoxWidth) + (3 * bitBoxGap)) / 2) - (bitBoxWidth / 2));
+				const colBitPositions = [
+					new THREE.Vector3(colStartX + (0 * bitStep), colBitY, tableCenter.z + cellPositions[col].z),
+					new THREE.Vector3(colStartX + (1 * bitStep), colBitY, tableCenter.z + cellPositions[col].z),
+					new THREE.Vector3(colStartX + (2 * bitStep), colBitY, tableCenter.z + cellPositions[col].z),
+					new THREE.Vector3(colStartX + (3 * bitStep), colBitY, tableCenter.z + cellPositions[col].z)
+				];
+
+				const fullStackMidY = (incomingY + outputY) / 2;
+				await moveCamera(
+					new THREE.Vector3(tableCenter.x, fullStackMidY + 5.9, tableCenter.z + 5.8),
+					new THREE.Vector3(tableCenter.x, fullStackMidY - 0.05, tableCenter.z + 0.02),
+					0.42
+				);
+
+				const inputSlotMats = [];
+				const inputSlotMeshes = [];
+				inputSlots.forEach(p => {
+					const mat = new THREE.MeshStandardMaterial({ color: 0xd7e6f7, roughness: 0.84, metalness: 0.02, transparent: true, opacity: 0 });
+					const slot = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.03, 0.2), mat);
+					slot.position.copy(p).add(new THREE.Vector3(0, -0.18, 0));
+					tableGroup.add(slot);
+					inputSlotMats.push(mat);
+					inputSlotMeshes.push(slot);
+				});
+
+				const rowIndicatorMats = [];
+				const rowIndicatorMeshes = [];
+				rowBitPositions.forEach(p => {
+					const mat = new THREE.MeshStandardMaterial({ color: 0xd9e8f8, roughness: 0.84, metalness: 0.02, transparent: true, opacity: 0 });
+					const slot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.22), mat);
+					slot.position.copy(p).add(new THREE.Vector3(0, -0.08, 0));
+					tableGroup.add(slot);
+					rowIndicatorMeshes.push(slot);
+					rowIndicatorMats.push(mat);
+				});
+
+				const colIndicatorMats = [];
+				const colIndicatorMeshes = [];
+				colBitPositions.forEach(p => {
+					const mat = new THREE.MeshStandardMaterial({ color: 0xd7e6f7, roughness: 0.84, metalness: 0.02, transparent: true, opacity: 0 });
+					const slot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.22), mat);
+					slot.position.copy(p).add(new THREE.Vector3(0, -0.08, 0));
+					tableGroup.add(slot);
+					colIndicatorMeshes.push(slot);
+					colIndicatorMats.push(mat);
+				});
+
+				await new Promise(resolve => gsap.to(plateMat, { opacity: 1, duration: 0.22, ease: "power2.out", onComplete: resolve }));
+				gsap.to(rimMat, { opacity: 1, duration: 0.18, ease: "power2.out" });
+				gsap.to(tableLegMat, { opacity: 1, duration: 0.22, ease: "power2.out" });
+				gsap.to(title.material, { opacity: 1, duration: 0.16, ease: "power2.out" });
+				inputSlotMats.forEach((mat, i) => gsap.to(mat, { opacity: 0.92, duration: 0.12, delay: i * 0.02 }));
+				rowIndicatorMats.forEach((mat, i) => gsap.to(mat, { opacity: 0.92, duration: 0.1, delay: i * 0.02 }));
+				colIndicatorMats.forEach((mat, i) => gsap.to(mat, { opacity: 0.92, duration: 0.1, delay: i * 0.02 }));
+				cellMeshes.forEach((cell, i) => gsap.to(cell.material, { opacity: 0.88, duration: 0.08, delay: i * 0.0015 }));
+				cellSprites.forEach((sprite, i) => gsap.to(sprite.material, { opacity: 1, duration: 0.08, delay: i * 0.0015 }));
+				rowLabels.forEach((label, i) => gsap.to(label.material, { opacity: 1, duration: 0.1, delay: i * 0.015 }));
+
 				for (let i = 0; i < 6; i += 1) {
-					const t = tokens48[inStart + i];
-					const target = centers[s].clone().add(new THREE.Vector3(-0.45 + i * 0.18, 0.1, 0));
-					animateTokenTo(t, target, 0.24, i * 0.02, 0.2);
+					animateTokenToScaled(entering[i], inputSlots[i], 0.62, 0.34, i * 0.04, 0.12);
+					await wait(14);
 				}
+
+				await wait(240);
+
+				const rowBitTokens = [entering[0], entering[5]];
+				rowBitTokens.forEach((token, i) => {
+					animateTokenToScaled(token, rowBitPositions[i], 0.52, 0.36, i * 0.04, 0.06);
+				});
 				await wait(300);
 
-				for (let i = 0; i < 6; i += 1) {
-					const t = tokens48[inStart + i];
-					gsap.to(t.mesh.scale, {
-						x: 0.001,
-						y: 0.001,
-						z: 0.001,
-						duration: 0.18,
-						delay: i * 0.012,
-						onComplete: () => removeObject(t.mesh)
-					});
+				gsap.to(rowLabels[row].material.color, { r: 0.15, g: 0.43, b: 0.84, duration: 0.12 });
+				gsap.to(rowLabels[row].material, { opacity: 1, duration: 0.1, yoyo: true, repeat: 1 });
+				for (let c = 0; c < 16; c += 1) {
+					const cell = cellMeshes[row * 16 + c];
+					gsap.to(cell.material.color, { r: 0.74, g: 0.84, b: 0.95, duration: 0.16 });
+					gsap.to(cell.material, { emissiveIntensity: 0.46, duration: 0.16 });
 				}
 
+				await wait(260);
+
+				const columnBitTokens = entering.slice(1, 5);
+				columnBitTokens.forEach((token, i) => {
+					animateTokenToScaled(token, colBitPositions[i], 0.52, 0.36, i * 0.03, 0.05);
+				});
+				await wait(300);
+
+				for (let r = 0; r < 4; r += 1) {
+					const cell = cellMeshes[r * 16 + col];
+					gsap.to(cell.material.color, { r: 0.78, g: 0.87, b: 0.96, duration: 0.16 });
+					gsap.to(cell.material, { emissiveIntensity: 0.5, duration: 0.16 });
+				}
+
+				await wait(320);
+
+				const selectedCell = cellMeshes[row * 16 + col];
+				const selectedSprite = cellSprites[row * 16 + col];
+				gsap.to(selectedCell.material, { emissiveIntensity: 0.82, duration: 0.16, yoyo: true, repeat: 1 });
+				gsap.to(selectedCell.material.color, { r: 0.72, g: 0.86, b: 0.98, duration: 0.14 });
+				gsap.to(selectedSprite.material, { opacity: 1, duration: 0.1, yoyo: true, repeat: 1 });
+
+				const decimalBadge = textSprite(String(SBOX[s][row][col]), 150, 84, "800 44px Menlo", "#1f57c8", 0.46, 0.24);
+				decimalBadge.position.copy(selectedCell.position).add(new THREE.Vector3(0, 0.26, 0.18));
+				tableGroup.add(decimalBadge);
+				gsap.to(decimalBadge.material, { opacity: 1, duration: 0.12 });
+				gsap.to(decimalBadge.scale, { x: 0.52, y: 0.28, z: 1, duration: 0.18, ease: "back.out(1.7)" });
+
+				await wait(320);
+
+				const intersectionWorld = new THREE.Vector3();
+				selectedCell.getWorldPosition(intersectionWorld);
 				for (let j = 0; j < 4; j += 1) {
 					const bit = outBits[outStart + j];
-					const spawn = centers[s].clone().add(new THREE.Vector3(-0.24 + j * 0.16, -0.1, 0));
+					const spawn = intersectionWorld.clone().add(new THREE.Vector3((j - 1.5) * 0.08, 0.12, 0));
 					const tok = makeBit(bit, spawn, "xor");
+					tok.mesh.scale.set(0.46, 0.46, 0.46);
 					outputs.push(tok);
-					const outPos = new THREE.Vector3(-4.4 + (outStart + j) * 0.28, -1.4, 7.4);
-					animateTokenTo(tok, outPos, 0.28, j * 0.02, 0.25);
+					gsap.to(tok.mesh.scale, { x: 0.9, y: 0.9, z: 0.9, duration: 0.18, ease: "back.out(1.7)" });
+					animateTokenTo(tok, groupedOutputTargets[s][j], 0.38, j * 0.02, 0.04);
+					glowBitToken(tok, bit, bit ? 0.54 : 0.24);
 				}
-				gsap.to(sboxes[s].material, { emissiveIntensity: 0.54, duration: 0.14, yoyo: true, repeat: 1 });
-				await wait(360);
+
+				await wait(280);
+				gsap.to(decimalBadge.material, { opacity: 0, duration: 0.12, onComplete: () => removeObject(decimalBadge) });
+				gsap.to(title.material, { opacity: 0, duration: 0.14, onComplete: () => removeObject(title) });
+				inputSlotMeshes.forEach((slot, i) => gsap.to(slot.material, { opacity: 0, duration: 0.1, delay: i * 0.01, onComplete: () => removeObject(slot) }));
+				rowIndicatorMeshes.forEach((mesh, i) => gsap.to(mesh.material, { opacity: 0, duration: 0.12, delay: i * 0.01, onComplete: () => removeObject(mesh) }));
+				colIndicatorMeshes.forEach((mesh, i) => gsap.to(mesh.material, { opacity: 0, duration: 0.12, delay: i * 0.01, onComplete: () => removeObject(mesh) }));
+				rowBitTokens.concat(columnBitTokens).forEach((token, i) => {
+					token.mesh.material.transparent = true;
+					gsap.to(token.mesh.material, {
+						opacity: 0,
+						duration: 0.12,
+						delay: i * 0.01,
+						onComplete: () => removeObject(token.mesh)
+					});
+				});
+				rowLabels.forEach((label, i) => gsap.to(label.material, { opacity: 0, duration: 0.1, delay: i * 0.01, onComplete: () => removeObject(label) }));
+				cellMeshes.forEach((cell, i) => gsap.to(cell.material, { opacity: 0, duration: 0.1, delay: i * 0.0015, onComplete: () => removeObject(cell) }));
+				cellSprites.forEach((sprite, i) => gsap.to(sprite.material, { opacity: 0, duration: 0.1, delay: i * 0.0015, onComplete: () => removeObject(sprite) }));
+				tableLegs.forEach((leg, i) => gsap.to(leg.material, { opacity: 0, duration: 0.12, delay: i * 0.01, onComplete: () => removeObject(leg) }));
+				gsap.to(rimMat, { opacity: 0, duration: 0.14, onComplete: () => removeObject(rim) });
+				gsap.to(plateMat, { opacity: 0, duration: 0.14, onComplete: () => removeObject(plate) });
+				gsap.to(tableGroup.position, {
+					y: tableGroup.position.y - 0.1,
+					duration: 0.16,
+					ease: "power1.inOut",
+					onComplete: () => removeObject(tableGroup)
+				});
+
+				if (s < 7) {
+					await moveCamera(
+						new THREE.Vector3(tableCenters[s + 1].x, 8.9, tableCenters[s + 1].z + 2.2),
+						new THREE.Vector3(tableCenters[s + 1].x, tableCenters[s + 1].y - 0.28, tableCenters[s + 1].z - 0.05),
+						0.42
+					);
+				}
 			}
 
-			await moveCamera(new THREE.Vector3(0.8, 8, 15), new THREE.Vector3(0.2, -1.2, 7.4), 1.0);
+			resetSectionSpeed();
+			stage("S-Boxes", "Collect the 32-bit S-box output row.");
+			await fitCameraToTokens(outputs, {
+				padding: 1.22,
+				duration: 0.92,
+				minDistance: 12.8,
+				extraDistance: 2.6
+			});
+
+			const outputBounds = tokenBounds(outputs);
+			const outputCenter = outputBounds ? outputBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, outputY, outputZ);
+			await moveCamera(
+				new THREE.Vector3(outputCenter.x, 8.2, outputCenter.z + 9.9),
+				new THREE.Vector3(outputCenter.x, outputCenter.y - 0.2, outputCenter.z),
+				0.78
+			);
+
+			const mergedRowY = outputCenter.y;
+			const mergedRowZ = outputCenter.z;
+			const mergedRowStartX = -((32 - 1) * 0.34) / 2;
+			const mergedTargets = layoutLine(32, mergedRowStartX, mergedRowY, mergedRowZ, 0.34);
+			for (let i = 0; i < outputs.length; i += 1) {
+				animateTokenTo(outputs[i], mergedTargets[i], 0.3, i * 0.004, 0.14);
+			}
+			await wait(620);
 			return outputs;
 		}
 
+		async function showStraightPermutation(sboxOut32) {
+			stage("Permutation P", "Reorder the 32 S-box output bits.");
+			await wait(STAGE_DELAY_MS);
+
+			const bounds = tokenBounds(sboxOut32);
+			const cx = bounds ? (bounds.min.x + bounds.max.x) / 2 : 0;
+			const z = bounds ? (bounds.max.z + 2.3) : 5.4;
+
+			await fitCameraToTokens(sboxOut32, {
+				padding: 1.12,
+				duration: 0.78,
+				minDistance: 11.2,
+				extraDistance: 2.0
+			});
+
+			await moveCamera(
+				new THREE.Vector3(cx, 8.3, z + 7.4),
+				new THREE.Vector3(cx, -0.95, z + 0.65),
+				0.86
+			);
+
+			const tableGroup = new THREE.Group();
+			tableGroup.userData.dynamic = true;
+			tableGroup.position.set(cx, -1.76, z + 0.08 + TABLE_TOWARD_CAMERA);
+			scene.add(tableGroup);
+
+			const pCols = 8;
+			const pRows = 4;
+			const pDx = 0.52 * TABLE_SCALE;
+			const pDz = 0.43 * TABLE_SCALE;
+			const pPlateW = (pCols - 1) * pDx + (pDx * 1.04);
+			const pPlateD = (pRows - 1) * pDz + (pDz * 1.04);
+
+			const plateMat = new THREE.MeshStandardMaterial({ color: 0xe8f0fa, roughness: 0.72, metalness: 0.12, transparent: true, opacity: 0 });
+			const plate = new THREE.Mesh(new THREE.BoxGeometry(pPlateW, 0.075, pPlateD), plateMat);
+			const rimMat = new THREE.MeshStandardMaterial({ color: 0xd8e5f2, roughness: 0.76, metalness: 0.08, transparent: true, opacity: 0 });
+			const rim = new THREE.Mesh(new THREE.BoxGeometry(pPlateW + 0.16, 0.11, pPlateD + 0.16), rimMat);
+			rim.position.y = -0.03;
+			tableGroup.add(rim);
+			tableGroup.add(plate);
+
+			const slots = layoutGrid(32, pCols, cx, -1.52, z + 0.08 + TABLE_TOWARD_CAMERA, pDx, pDz);
+			const wells = [];
+			const wellMats = [];
+			slots.forEach(slot => {
+				const mat = new THREE.MeshStandardMaterial({ color: 0xd2deeb, roughness: 0.84, metalness: 0.03, transparent: true, opacity: 0 });
+				const well = new THREE.Mesh(new THREE.BoxGeometry(pDx * 0.74, 0.045, pDz * 0.74), mat);
+				well.position.set(slot.x, -1.73, slot.z);
+				well.userData.dynamic = true;
+				scene.add(well);
+				wells.push(well);
+				wellMats.push(mat);
+			});
+
+			const labels = [];
+			for (let i = 0; i < 32; i += 1) {
+				const cv = document.createElement("canvas");
+				cv.width = 120;
+				cv.height = 60;
+				const ctx = cv.getContext("2d");
+				ctx.fillStyle = "#355c85";
+				ctx.font = "600 32px Menlo";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText(String(P[i]).padStart(2, "0"), 60, 30);
+				const tex = new THREE.CanvasTexture(cv);
+				const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
+				spr.scale.set(0.2, 0.1, 1);
+				spr.position.copy(slots[i]).add(new THREE.Vector3(0, 0.145, 0));
+				spr.userData.dynamic = true;
+				scene.add(spr);
+				labels.push(spr);
+			}
+
+			await new Promise(resolve => gsap.to(plateMat, { opacity: 1, duration: 0.26, ease: "power2.out", onComplete: resolve }));
+			gsap.to(rimMat, { opacity: 1, duration: 0.24, ease: "power2.out" });
+			wellMats.forEach((mat, i) => gsap.to(mat, { opacity: 1, duration: 0.14, delay: i * 0.001 }));
+			labels.forEach((spr, i) => gsap.to(spr.material, { opacity: 1, duration: 0.14, delay: i * 0.0015 }));
+			await wait(220);
+
+			const permuted = [];
+			const assignments = [];
+			for (let i = 0; i < 32; i += 1) {
+				const srcIndex = P[i] - 1;
+				const token = sboxOut32[srcIndex];
+				permuted.push(token);
+				assignments.push({ token, target: slots[i], sourceX: tokenWorldPoint(token).x, index: i });
+			}
+			assignments.sort((a, b) => a.sourceX - b.sourceX || a.index - b.index);
+			for (const assignment of assignments) {
+				animateTokenTo(assignment.token, assignment.target, 0.28, 0, 0.24);
+				await wait(34);
+			}
+
+			await wait(380);
+
+			const rowBounds = tokenBounds(permuted);
+			const rowCenter = rowBounds ? rowBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ + 3.2);
+			const rowY = SHARED_ROW_AXIS.bitY;
+			const rowZ = rowCenter.z + 2.35;
+			const rowStartX = rowCenter.x - ((32 - 1) * 0.34) / 2;
+			const rowTargets = layoutLine(32, rowStartX, rowY, rowZ, 0.34);
+
+			await moveCamera(
+				new THREE.Vector3(rowCenter.x, 7.9, rowZ + 6.8),
+				new THREE.Vector3(rowCenter.x, rowY - 0.15, rowZ),
+				0.68
+			);
+			await wait(140);
+
+			for (let i = 0; i < permuted.length; i += 1) {
+				animateTokenTo(permuted[i], rowTargets[i], 0.28, 0, 0.16);
+				await wait(24);
+			}
+			await wait(220);
+
+			labels.forEach((spr, i) => {
+				gsap.to(spr.material, { opacity: 0, duration: 0.14, delay: i * 0.001, onComplete: () => removeObject(spr) });
+			});
+			wellMats.forEach((mat, i) => {
+				gsap.to(mat, { opacity: 0, duration: 0.14, delay: i * 0.001, onComplete: () => removeObject(wells[i]) });
+			});
+			gsap.to(rimMat, { opacity: 0, duration: 0.18, onComplete: () => removeObject(rim) });
+			gsap.to(plateMat, { opacity: 0, duration: 0.18, onComplete: () => removeObject(plate) });
+			gsap.to(tableGroup.position, {
+				y: tableGroup.position.y - 0.14,
+				duration: 0.18,
+				ease: "power1.inOut",
+				onComplete: () => removeObject(tableGroup)
+			});
+
+			await wait(700);
+			return permuted;
+		}
+
+		async function feistelXorWithLeftHalf(leftHalf32, pOut32) {
+			stage("Feistel Function", "XOR L with f(R, K).");
+			await wait(STAGE_DELAY_MS);
+
+			const both = leftHalf32.concat(pOut32);
+			const bothBounds = tokenBounds(both);
+			const bothCenter = bothBounds ? bothBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, -0.2, 5.2);
+			const bothMaxZ = bothBounds ? bothBounds.max.z : (bothCenter.z + 1.8);
+
+			await moveCamera(
+				new THREE.Vector3(bothCenter.x, 9.1, bothMaxZ + 24.4),
+				new THREE.Vector3(bothCenter.x, bothCenter.y - 0.12, bothCenter.z + 0.52),
+				0.9
+			);
+			await wait(520);
+
+			const bottomTargets = pOut32.map(token => tokenWorldPoint(token));
+			const topTargets = bottomTargets.map(p => new THREE.Vector3(p.x, 0.86, p.z));
+			const collisionY = -0.78;
+			const resultTargets = bottomTargets.map(p => new THREE.Vector3(p.x, collisionY, p.z));
+
+			for (let i = 0; i < 32; i += 1) {
+				animateTokenTo(leftHalf32[i], topTargets[i], 0.34, 0, 0.18);
+				await wait(24);
+			}
+
+			await wait(220);
+
+			const xorPairBounds = tokenBounds(leftHalf32.concat(pOut32));
+			const xorCenter = xorPairBounds ? xorPairBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(bothCenter.x, -0.1, bothCenter.z + 0.5);
+			const xorMaxZ = xorPairBounds ? xorPairBounds.max.z : (xorCenter.z + 0.9);
+			await moveCamera(
+				new THREE.Vector3(xorCenter.x, 8.1, xorMaxZ + 7.2),
+				new THREE.Vector3(xorCenter.x, -0.14, xorCenter.z + 0.18),
+				0.64
+			);
+			await wait(220);
+
+			await wait(340);
+
+			const collisionTweens = leftHalf32.map((token, i) => new Promise(resolve => {
+				gsap.to(token.mesh.position, {
+					y: collisionY,
+					duration: 0.9,
+					ease: "power2.inOut",
+					onComplete: resolve
+				});
+				gsap.to(token.mesh.scale, {
+					x: 1.05,
+					y: 1.05,
+					z: 1.05,
+					duration: 0.9,
+					ease: "power2.inOut"
+				});
+				gsap.to(pOut32[i].mesh.scale, {
+					x: 1.08,
+					y: 1.08,
+					z: 1.08,
+					duration: 0.9,
+					yoyo: true,
+					repeat: 1,
+					ease: "power1.inOut"
+				});
+			}));
+
+			await Promise.all(collisionTweens);
+
+			const xorValues = leftHalf32.map((token, i) => token.bit ^ pOut32[i].bit);
+			const resultTokens = [];
+
+			xorValues.forEach((bit, i) => {
+				const spawn = resultTargets[i].clone();
+				spawn.y -= 0.34;
+				const result = makeBit(bit, spawn, "xor");
+				result.mesh.scale.set(0.001, 0.001, 0.001);
+				resultTokens.push(result);
+				gsap.to(result.mesh.scale, { x: 1, y: 1, z: 1, duration: 0.22, ease: "back.out(2.4)" });
+				glowBitToken(result, bit, bit ? 0.54 : 0.24);
+				animateTokenTo(result, resultTargets[i], 0.28, 0, 0.52);
+				gsap.to(result.mesh.position, {
+					y: resultTargets[i].y + 0.58,
+					duration: 0.14,
+					delay: 0.05,
+					yoyo: true,
+					repeat: 1,
+					ease: "power1.out"
+				});
+
+				leftHalf32[i].mesh.material.transparent = true;
+				pOut32[i].mesh.material.transparent = true;
+				gsap.to(leftHalf32[i].mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.28, ease: "power2.in", delay: 0.02 });
+				gsap.to(pOut32[i].mesh.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.28, ease: "power2.in", delay: 0.02 });
+				gsap.to(leftHalf32[i].mesh.material, { opacity: 0, duration: 0.24, delay: 0.03, onComplete: () => removeObject(leftHalf32[i].mesh) });
+				gsap.to(pOut32[i].mesh.material, { opacity: 0, duration: 0.24, delay: 0.03, onComplete: () => removeObject(pOut32[i].mesh) });
+			});
+
+			await wait(620);
+			return resultTokens;
+		}
+
+		async function finalizeRoundOneHalves(r0Tokens, r1Tokens, l0HomeTargets, r0HomeTargets, roundIndex = 1, totalRounds = 16) {
+			stage("Feistel Round", `Round ${roundIndex}: swap the halves and apply the Feistel function.`);
+			await wait(STAGE_DELAY_MS);
+
+			const both = r0Tokens.concat(r1Tokens);
+			const bothBounds = tokenBounds(both);
+			const bothCenter = bothBounds ? bothBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, -0.2, 5.2);
+			const bothMaxZ = bothBounds ? bothBounds.max.z : (bothCenter.z + 1.8);
+
+			await moveCamera(
+				new THREE.Vector3(bothCenter.x, 9.1, bothMaxZ + 24.4),
+				new THREE.Vector3(bothCenter.x, bothCenter.y - 0.12, bothCenter.z + 0.52),
+				0.82
+			);
+			await wait(360);
+
+			const l1Tokens = r0Tokens;
+			for (let i = 0; i < 32; i += 1) {
+				animateTokenTo(l1Tokens[i], l0HomeTargets[i], 0.3, 0, 0.2);
+				gsap.to(l1Tokens[i].mesh.scale, { x: 1.06, y: 1.06, z: 1.06, duration: 0.16, yoyo: true, repeat: 1, ease: "power1.inOut" });
+				await wait(16);
+			}
+
+			await wait(200);
+
+			for (let i = 0; i < r1Tokens.length; i += 1) {
+				animateTokenTo(r1Tokens[i], r0HomeTargets[i], 0.3, 0, 0.18);
+				await wait(14);
+			}
+
+			const finalTokens = l1Tokens.concat(r1Tokens);
+			await fitCameraToTokens(finalTokens, {
+				padding: 1.04,
+				duration: 0.9,
+				minDistance: 8.6,
+				extraDistance: 1.0
+			});
+			const finalBounds = tokenBounds(finalTokens);
+			if (finalBounds) {
+				const center = finalBounds.getCenter(new THREE.Vector3());
+				await moveCamera(
+					new THREE.Vector3(center.x, 5.8, center.z + 17.7),
+					new THREE.Vector3(center.x, -0.92, center.z),
+					0.55
+				);
+			}
+			await wait(260);
+
+			await wait(420);
+			return { l1: l1Tokens, r1: r1Tokens };
+		}
+
+		async function mergeFinalHalvesIntoOneRow(leftTokens, rightTokens) {
+			const finalTokens = leftTokens.concat(rightTokens);
+			const bounds = tokenBounds(finalTokens);
+			const center = bounds ? bounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ);
+			const rowY = SHARED_ROW_AXIS.bitY;
+			const rowZ = center.z;
+			const startX = center.x - ((finalTokens.length - 1) * SHARED_ROW_AXIS.bitSpacing) / 2;
+			const targets = layoutLine(finalTokens.length, startX, rowY, rowZ, SHARED_ROW_AXIS.bitSpacing);
+
+			stage("Ciphertext", "Merge L16 and R16 into the final ciphertext row.");
+			await wait(STAGE_DELAY_MS);
+
+			for (let i = 0; i < leftTokens.length; i += 1) {
+				animateTokenTo(leftTokens[i], targets[i], 0.3, i * 0.003, 0.14);
+				gsap.to(leftTokens[i].mesh.scale, { x: 1.04, y: 1.04, z: 1.04, duration: 0.18, yoyo: true, repeat: 1, ease: "power1.inOut" });
+			}
+			for (let i = 0; i < rightTokens.length; i += 1) {
+				animateTokenTo(rightTokens[i], targets[leftTokens.length + i], 0.3, i * 0.003, 0.14);
+				gsap.to(rightTokens[i].mesh.scale, { x: 1.04, y: 1.04, z: 1.04, duration: 0.18, yoyo: true, repeat: 1, ease: "power1.inOut" });
+			}
+
+			await wait(860);
+			return finalTokens;
+		}
+
+		async function restoreOriginalKeyBitsBeforeOverflow(key56Tokens, finalRowTokens) {
+			if (!key56Tokens || key56Tokens.length === 0) return [];
+			const keyTokens = key56Tokens.filter(token => token && token.mesh);
+			if (keyTokens.length === 0) return [];
+
+			const rowBoundsNow = tokenBounds(finalRowTokens);
+			const rowCenter = rowBoundsNow ? rowBoundsNow.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ);
+			const rowY = rowCenter.y;
+			const rowZ = rowCenter.z - 2.6;
+			const keyStep = SHARED_ROW_AXIS.bitSpacing;
+			const keySplitGap = 1.8;
+			const halfCount = Math.floor(keyTokens.length / 2);
+			const keyStartX = (rowBoundsNow ? rowBoundsNow.max.x : rowCenter.x) + 3.2;
+			const buildHalfTargets = () => {
+				const leftTargets = layoutLine(halfCount, keyStartX, rowY, rowZ, keyStep);
+				const rightStartX = keyStartX + (halfCount * keyStep) + keySplitGap;
+				const rightTargets = layoutLine(halfCount, rightStartX, rowY, rowZ, keyStep);
+				return leftTargets.concat(rightTargets);
+			};
+
+			stage("Key Schedule", "Move the key bits aside for overflow processing.");
+			await wait(STAGE_DELAY_MS);
+
+			const initialTargets = buildHalfTargets();
+			for (let i = 0; i < keyTokens.length; i += 1) {
+				animateTokenTo(keyTokens[i], initialTargets[i], 0.34, i * 0.0016, 0.12);
+			}
+			await wait(720);
+
+			await fitCameraToTokens(keyTokens, {
+				padding: 1.2,
+				duration: 0.82,
+				minDistance: 11.2,
+				extraDistance: 2.1
+			});
+
+			stage("Key Schedule", "Restore the original key order.");
+			await wait(STAGE_DELAY_MS);
+
+			let working = keyTokens.slice();
+			for (let roundIndex = SHIFT_SCHEDULE.length - 1; roundIndex >= 0; roundIndex -= 1) {
+				const shift = SHIFT_SCHEDULE[roundIndex];
+				const leftHalf = rotateRight(working.slice(0, halfCount), shift);
+				const rightHalf = rotateRight(working.slice(halfCount), shift);
+				working = leftHalf.concat(rightHalf);
+
+				const roundTargets = buildHalfTargets();
+
+				for (let i = 0; i < working.length; i += 1) {
+					animateTokenTo(working[i], roundTargets[i], 0.22, i * 0.0008, 0.08);
+				}
+				await wait(250);
+			}
+
+			const finalTargets = buildHalfTargets();
+			for (let i = 0; i < working.length; i += 1) {
+				animateTokenTo(working[i], finalTargets[i], 0.28, i * 0.001, 0.08);
+			}
+			await wait(520);
+
+			const mergedStartX = keyStartX;
+			const mergedTargets = layoutLine(working.length, mergedStartX, rowY, rowZ, keyStep);
+			for (let i = 0; i < working.length; i += 1) {
+				animateTokenTo(working[i], mergedTargets[i], 0.32, i * 0.001, 0.08);
+			}
+			await wait(640);
+
+			return working;
+		}
+
+		function chunkText(text, size) {
+			const chunks = [];
+			for (let i = 0; i < text.length; i += size) chunks.push(text.slice(i, i + size));
+			return chunks;
+		}
+
+		async function animateDesPipeline(tokens64, inputTargets, outputTargets, outputBits, keyBits64 = null, keyInjectionMode = "original", keySourceTokens = null) {
+			if (!tokens64 || tokens64.length !== 64 || !inputTargets || inputTargets.length < 64 || !outputTargets || outputTargets.length < 64 || !outputBits || outputBits.length !== 64) return;
+
+			const inputBounds = new THREE.Box3().setFromPoints(inputTargets);
+			const inputCenterZRaw = inputBounds.getCenter(new THREE.Vector3()).z;
+			const outputCenterZRaw = new THREE.Box3().setFromPoints(outputTargets).getCenter(new THREE.Vector3()).z;
+			const minRowSeparationZ = 8.5;
+			const rowSeparationRaw = outputCenterZRaw - inputCenterZRaw;
+			let effectiveOutputTargets = outputTargets;
+			if (Math.abs(rowSeparationRaw) < minRowSeparationZ) {
+				const separationDir = Math.sign(rowSeparationRaw) || 1;
+				const requiredShift = separationDir * (minRowSeparationZ - Math.abs(rowSeparationRaw));
+				effectiveOutputTargets = outputTargets.map(point => point.clone().add(new THREE.Vector3(0, 0, requiredShift)));
+			}
+
+			const outputBounds = new THREE.Box3().setFromPoints(effectiveOutputTargets);
+			const allBounds = new THREE.Box3().setFromPoints(inputTargets.concat(effectiveOutputTargets));
+			const center = allBounds.getCenter(new THREE.Vector3());
+			const rowY = center.y;
+			const rowPlaneY = rowY;
+			const inputCenterZ = inputBounds.getCenter(new THREE.Vector3()).z;
+			const outputCenterZ = outputBounds.getCenter(new THREE.Vector3()).z;
+			const desVisualScale = 3;
+			const funnelWidthScale = 0.65;
+			const funnelHeightScale = 1.0;
+			const bodyWidth = 3.4 * desVisualScale;
+			const bodyHeight = 0.04 * desVisualScale;
+			const bodyDepth = 1.15 * desVisualScale;
+			const bodyHalfDepth = bodyDepth / 2;
+
+			const inSpanX = Math.max(0.8, inputBounds.max.x - inputBounds.min.x);
+			const outSpanX = Math.max(0.8, outputBounds.max.x - outputBounds.min.x);
+			const rowFunnelGap = 0.52;
+			const boxCenterZ = (inputCenterZ + outputCenterZ) / 2;
+			const inputTowardBox = Math.sign(boxCenterZ - inputCenterZ) || 1;
+			const outputFromBox = Math.sign(outputCenterZ - boxCenterZ) || -1;
+			const inputRowGapEdgeZ = inputCenterZ + (inputTowardBox * rowFunnelGap);
+			const outputRowGapEdgeZ = outputCenterZ - (outputFromBox * rowFunnelGap);
+			const boxInputMouthZ = boxCenterZ - (inputTowardBox * (bodyHalfDepth + 0.04));
+			const boxOutputMouthZ = boxCenterZ + (outputFromBox * (bodyHalfDepth + 0.04));
+			const funnelLengthWorldBase = Math.max(0.75, Math.abs(inputRowGapEdgeZ - boxInputMouthZ));
+			const outFunnelLengthWorldBase = Math.max(0.75, Math.abs(boxOutputMouthZ - outputRowGapEdgeZ));
+			const funnelLengthWorld = funnelLengthWorldBase * funnelHeightScale;
+			const outFunnelLengthWorld = outFunnelLengthWorldBase * funnelHeightScale;
+			const funnelLength = funnelLengthWorld / desVisualScale;
+			const outFunnelLength = outFunnelLengthWorld / desVisualScale;
+			const inputFunnelRowEdgeZ = boxInputMouthZ - (inputTowardBox * funnelLengthWorld);
+			const outputFunnelRowEdgeZ = boxOutputMouthZ + (outputFromBox * outFunnelLengthWorld);
+			const boxMouthWidth = 1.5;
+			const inputOuterWidth = Math.min(2.2, Math.max(1.1, inSpanX + 0.12)) * funnelWidthScale;
+			const outputOuterWidth = Math.min(2.2, Math.max(1.1, outSpanX + 0.12)) * funnelWidthScale;
+			const scaledBoxMouthWidth = boxMouthWidth * funnelWidthScale;
+
+			function makeTrapezoidShape(length, nearWidth, farWidth) {
+				const s = new THREE.Shape();
+				s.moveTo(-farWidth / 2, length / 2);
+				s.lineTo(farWidth / 2, length / 2);
+				s.lineTo(nearWidth / 2, -length / 2);
+				s.lineTo(-nearWidth / 2, -length / 2);
+				s.closePath();
+				return s;
+			}
+
+			const rig = new THREE.Group();
+			rig.userData.dynamic = true;
+			scene.add(rig);
+
+			const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe5edf7, roughness: 0.62, metalness: 0.08, transparent: true, opacity: 0 });
+			const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth), bodyMat);
+			body.position.set(center.x, rowPlaneY, boxCenterZ);
+			body.userData.dynamic = true;
+			rig.add(body);
+
+			const inFunnelMat = new THREE.MeshStandardMaterial({ color: 0xdbe7f5, roughness: 0.66, metalness: 0.06, transparent: true, opacity: 0, side: THREE.DoubleSide });
+			const inFunnelGeom = new THREE.ShapeGeometry(makeTrapezoidShape(funnelLength * desVisualScale, scaledBoxMouthWidth * desVisualScale, inputOuterWidth * desVisualScale));
+			const inFunnel = new THREE.Mesh(inFunnelGeom, inFunnelMat);
+			inFunnel.rotation.x = -Math.PI / 2;
+			if (boxCenterZ < inputCenterZ) inFunnel.rotation.y = Math.PI;
+			inFunnel.position.set(center.x, rowPlaneY, (inputFunnelRowEdgeZ + boxInputMouthZ) / 2);
+			inFunnel.userData.dynamic = true;
+			rig.add(inFunnel);
+
+			const outFunnelMat = new THREE.MeshStandardMaterial({ color: 0xdbe7f5, roughness: 0.66, metalness: 0.06, transparent: true, opacity: 0, side: THREE.DoubleSide });
+			const outFunnelGeom = new THREE.ShapeGeometry(makeTrapezoidShape(outFunnelLength * desVisualScale, outputOuterWidth * desVisualScale, scaledBoxMouthWidth * desVisualScale));
+			const outFunnel = new THREE.Mesh(outFunnelGeom, outFunnelMat);
+			outFunnel.rotation.x = -Math.PI / 2;
+			if (boxCenterZ > outputCenterZ) outFunnel.rotation.y = Math.PI;
+			outFunnel.position.set(center.x, rowPlaneY, (boxOutputMouthZ + outputFunnelRowEdgeZ) / 2);
+			outFunnel.userData.dynamic = true;
+			rig.add(outFunnel);
+
+			const labelCanvas = document.createElement("canvas");
+			labelCanvas.width = 280;
+			labelCanvas.height = 100;
+			const labelCtx = labelCanvas.getContext("2d");
+			labelCtx.clearRect(0, 0, 280, 100);
+			labelCtx.fillStyle = "#2d4a66";
+			labelCtx.font = "800 62px Avenir";
+			labelCtx.textAlign = "center";
+			labelCtx.textBaseline = "middle";
+			labelCtx.fillText("DES", 140, 54);
+			const labelTex = new THREE.CanvasTexture(labelCanvas);
+			const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false, opacity: 0 }));
+			label.scale.set(1.2 * desVisualScale, 0.42 * desVisualScale, 1);
+			label.position.set(center.x, rowPlaneY + 0.32, boxCenterZ);
+			label.userData.dynamic = true;
+			rig.add(label);
+
+			const frameBounds = new THREE.Box3().setFromPoints(inputTargets.concat(effectiveOutputTargets));
+			const frameCenter = frameBounds.getCenter(new THREE.Vector3());
+			const frameSize = frameBounds.getSize(new THREE.Vector3());
+			const halfWidth = Math.max(1.4, frameSize.x * 0.65, (bodyWidth / 2) + 1.0, ((inputOuterWidth * desVisualScale) / 2) + 0.7, ((outputOuterWidth * desVisualScale) / 2) + 0.7);
+			const halfDepth = Math.max(1.4, frameSize.z * 0.7, (bodyDepth / 2) + Math.max(funnelLengthWorld, outFunnelLengthWorld) + rowFunnelGap + 1.2);
+			const vFov = THREE.MathUtils.degToRad(camera.fov);
+			const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+			const distForWidth = halfWidth / Math.tan(hFov / 2);
+			const distForDepth = halfDepth / Math.tan(vFov / 2);
+			const angleDistance = Math.max(13.2, distForWidth, distForDepth) + 2.2 + (desVisualScale * 0.9);
+
+			await moveCamera(
+				new THREE.Vector3(frameCenter.x, rowY + angleDistance - 12, frameCenter.z + angleDistance - 12),
+				new THREE.Vector3(frameCenter.x, rowY - 0.22, frameCenter.z),
+				0.72
+			);
+
+			gsap.to(bodyMat, { opacity: 1, duration: 0.22, ease: "power2.out" });
+			gsap.to(inFunnelMat, { opacity: 1, duration: 0.22, ease: "power2.out" });
+			gsap.to(outFunnelMat, { opacity: 1, duration: 0.22, ease: "power2.out" });
+			gsap.to(label.material, { opacity: 1, duration: 0.2, ease: "power2.out" });
+			await wait(220);
+
+			for (let i = 0; i < 64; i += 1) {
+				animateTokenTo(tokens64[i], inputTargets[i], 0.22, i * 0.0008, 0.05);
+			}
+			await wait(280);
+
+			for (let i = 0; i < 64; i += 1) {
+				const token = tokens64[i];
+				const laneOffset = ((i % 16) - 7.5) * 0.05;
+				const funnelEntry = new THREE.Vector3(center.x, rowPlaneY, inputFunnelRowEdgeZ + (inputTowardBox * 0.24) + laneOffset);
+				const chamber = new THREE.Vector3(center.x + (((i % 8) - 3.5) * 0.035), rowPlaneY, boxCenterZ + (((i % 8) - 3.5) * 0.02));
+				animateTokenTo(token, funnelEntry, 0.2, i * 0.0022, 0.04);
+				animateTokenTo(token, chamber, 0.24, 0.16 + i * 0.0022, 0.03);
+				gsap.to(token.mesh.scale, {
+					x: 0.001,
+					y: 0.001,
+					z: 0.001,
+					duration: 0.16,
+					delay: 0.26 + i * 0.0022,
+					ease: "power2.in"
+				});
+				if (token.mesh.material) {
+					token.mesh.material.transparent = true;
+					gsap.to(token.mesh.material, {
+						opacity: 0,
+						duration: 0.14,
+						delay: 0.26 + i * 0.0022,
+						ease: "power2.in"
+					});
+				}
+			}
+			await wait(620);
+
+			if (Array.isArray(keyBits64) && keyBits64.length === 64) {
+				stage("Permuted Choice 2", "Feed the round subkey into DES.");
+				await wait(120);
+
+				const keyRailZ = boxCenterZ + (outputFromBox * Math.max(0.42, bodyHalfDepth * 0.28));
+				const keyRowY = rowPlaneY + 0.02;
+				const keyRowSpacing = 0.18;
+				const keyRightStartX = center.x + (bodyWidth / 2) + 1.8;
+				const keyRowTargets = layoutLine(64, keyRightStartX, keyRowY, keyRailZ, keyRowSpacing);
+				const keyEnterCenter = new THREE.Vector3(center.x, rowPlaneY, boxCenterZ);
+
+				const hasOriginalKeySource = Array.isArray(keySourceTokens) && keySourceTokens.length > 0;
+				const originalKeyTokens = hasOriginalKeySource
+					? keySourceTokens
+					: keyBits64.map((bit, i) => {
+						const spawn = keyRowTargets[i].clone().add(new THREE.Vector3(2.2, 0.08, 0));
+						const token = makeBit(bit, spawn, "key");
+						primeTokenForReveal(token, spawn, 0.72, 0);
+						return token;
+					});
+				const keyCount = originalKeyTokens.length;
+				const keyRowTargetsDynamic = layoutLine(keyCount, keyRightStartX, keyRowY, keyRailZ, keyRowSpacing);
+
+				if (!hasOriginalKeySource) {
+					for (let i = 0; i < originalKeyTokens.length; i += 1) {
+						revealToken(originalKeyTokens[i], keyRowTargetsDynamic[i], {
+							duration: 0.28,
+							delay: i * 0.0012,
+							arc: 0.04,
+							scale: 0.72,
+							scaleDuration: 0.2,
+							scaleEase: "power2.out",
+							opacityDuration: 0.2
+						});
+					}
+					await wait(420);
+				} else if (keyInjectionMode !== "mitosis") {
+					for (let i = 0; i < originalKeyTokens.length; i += 1) {
+						animateTokenTo(originalKeyTokens[i], keyRowTargetsDynamic[i], 0.32, i * 0.0012, 0.04);
+					}
+					await wait(420);
+				}
+
+				let ingestTokens = originalKeyTokens;
+				if (keyInjectionMode === "mitosis") {
+					stage("Permuted Choice 2", "Feed the round subkey into this block.");
+					await wait(120);
+					ingestTokens = originalKeyTokens.map((originalToken, i) => {
+						const clone = cloneBitToken(originalToken, "key");
+						const originalPos = tokenWorldPoint(originalToken);
+						primeTokenForReveal(clone, originalPos, 0.001, 0);
+						revealToken(clone, originalPos, {
+							duration: 0.16,
+							delay: i * 0.0008,
+							arc: 0.02,
+							scale: 0.72,
+							scaleDuration: 0.14,
+							scaleEase: "power2.out",
+							opacityDuration: 0.14
+						});
+						gsap.to(originalToken.mesh.scale, {
+							x: 0.84,
+							y: 0.84,
+							z: 0.84,
+							duration: 0.2,
+							delay: i * 0.0008,
+							yoyo: true,
+							repeat: 1,
+							ease: "power1.inOut"
+						});
+						return clone;
+					});
+					await wait(260);
+				}
+
+				for (let i = 0; i < ingestTokens.length; i += 1) {
+					animateTokenTo(ingestTokens[i], keyRowTargetsDynamic[i], 0.22, i * 0.0008, 0.02);
+				}
+				await wait(320);
+
+				for (let i = 0; i < ingestTokens.length; i += 1) {
+					animateTokenTo(ingestTokens[i], keyEnterCenter, 0.74, 0, 0.03);
+					gsap.to(ingestTokens[i].mesh.scale, {
+						x: 0.001,
+						y: 0.001,
+						z: 0.001,
+						duration: 0.2,
+						delay: 0.54,
+						ease: "power2.in"
+					});
+					if (ingestTokens[i].mesh.material) {
+						gsap.to(ingestTokens[i].mesh.material, {
+							opacity: 0,
+							duration: 0.18,
+							delay: 0.54,
+							ease: "power2.in",
+							onComplete: () => removeObject(ingestTokens[i].mesh)
+						});
+					} else {
+						gsap.delayedCall(0.78, () => removeObject(ingestTokens[i].mesh));
+					}
+				}
+
+				if (keyInjectionMode === "mitosis" && !hasOriginalKeySource) {
+					for (let i = 0; i < originalKeyTokens.length; i += 1) {
+						gsap.to(originalKeyTokens[i].mesh.material, {
+							opacity: 0,
+							duration: 0.2,
+							delay: 0.24 + i * 0.0008,
+							ease: "power2.in",
+							onComplete: () => removeObject(originalKeyTokens[i].mesh)
+						});
+					}
+				}
+				await wait(1020);
+			}
+
+			for (let i = 0; i < 64; i += 1) {
+				const token = tokens64[i];
+				token.bit = outputBits[i];
+				glowBitToken(token, outputBits[i], outputBits[i] ? 0.64 : 0.24);
+				token.mesh.position.set(center.x, rowPlaneY, outputFunnelRowEdgeZ + (outputFromBox * 0.24) + (((i % 16) - 7.5) * 0.045));
+				token.mesh.scale.set(0.001, 0.001, 0.001);
+				if (token.mesh.material) {
+					token.mesh.material.transparent = true;
+					token.mesh.material.opacity = 0;
+				}
+				gsap.to(token.mesh.scale, { x: 1, y: 1, z: 1, duration: 0.18, delay: i * 0.002, ease: "back.out(1.6)" });
+				if (token.mesh.material) gsap.to(token.mesh.material, { opacity: 1, duration: 0.16, delay: i * 0.002, ease: "power2.out" });
+				animateTokenTo(token, effectiveOutputTargets[i], 0.28, i * 0.002, 0.06);
+			}
+			await wait(760);
+
+			gsap.to(bodyMat, { opacity: 0, duration: 0.18, ease: "power2.in" });
+			gsap.to(inFunnelMat, { opacity: 0, duration: 0.18, ease: "power2.in" });
+			gsap.to(outFunnelMat, { opacity: 0, duration: 0.18, ease: "power2.in" });
+			gsap.to(label.material, { opacity: 0, duration: 0.16, ease: "power2.in" });
+			await wait(180);
+			removeObject(rig);
+		}
+
+		async function appendOverflowAndTransformBlocks(baseRowTokens, overflowTokensInput, plainText, keyText, overflowSide = "left", restoredKeyTokensInput = []) {
+			const overflowSource = (overflowTokensInput && overflowTokensInput.length > 0)
+				? overflowTokensInput
+				: textToBits(plainText || "").slice(64).map(bit => ({ bit, kind: "data" }));
+			if (!overflowSource || overflowSource.length === 0) return baseRowTokens;
+
+			const baseBounds = tokenBounds(baseRowTokens);
+			const baseCenter = baseBounds ? baseBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ);
+			const rowY = SHARED_ROW_AXIS.bitY;
+			const rowZ = baseCenter.z;
+			const overflowRowZ = rowZ;
+			const bitStep = SHARED_ROW_AXIS.bitSpacing;
+			const blockGap = 3.0;
+			const blockSize = 64;
+			const blockStride = (((blockSize - 1) * bitStep) + blockGap);
+			const baseStartX = baseBounds ? baseBounds.min.x : baseCenter.x - (((blockSize - 1) * bitStep) / 2);
+			const appendedStartX = (baseBounds ? baseBounds.max.x : (baseCenter.x + (((blockSize - 1) * bitStep) / 2))) + blockGap;
+
+			const allTextBlocks = chunkText(plainText, 8);
+			const keyBits64 = textToBits((keyText || "").padEnd(8, " ")).slice(0, 64);
+			const keyInjectionTokens = (restoredKeyTokensInput || []).filter(token => token && token.mesh);
+
+			const overflowBlocks = [];
+			for (let i = 0; i < overflowSource.length; i += blockSize) overflowBlocks.push(overflowSource.slice(i, i + blockSize));
+
+			stage("Apply the DES encryption to the remaining bits.", "Frame the remaining blocks for DES processing.");
+			await wait(460);
+
+			const overflowCount = overflowSource.length;
+			const overflowBlockCount = Math.ceil(overflowCount / blockSize);
+			const paddedOverflowCount = overflowBlockCount * blockSize;
+			const revealStartX = baseStartX + blockStride;
+			const revealTargets = layoutLine(overflowCount, revealStartX, rowY, rowZ, bitStep);
+			updateFloorForBitRows(baseRowTokens, revealTargets);
+			if (revealTargets.length > 0) {
+				const frameRightEdge = paddedOverflowCount > 0
+					? (baseStartX + (overflowBlockCount * blockStride) + ((blockSize - 1) * bitStep))
+					: revealTargets[revealTargets.length - 1].x;
+				const minX = Math.min(baseBounds ? baseBounds.min.x : revealTargets[0].x, revealTargets[0].x) - 0.8;
+				const maxX = Math.max(baseBounds ? baseBounds.max.x : frameRightEdge, frameRightEdge) + 0.8;
+				const centerX = (minX + maxX) / 2;
+				const spanX = Math.max(1.2, maxX - minX);
+				const vFov = THREE.MathUtils.degToRad(camera.fov);
+				const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+				const distForWidth = (spanX / 2) / Math.tan(hFov / 2);
+				const distance = Math.max(14, distForWidth) + 4.6;
+				await moveCamera(
+					new THREE.Vector3(centerX, rowY + Math.max(5.8, distance * 0.5), rowZ + distance + 20),
+					new THREE.Vector3(centerX, rowY - 0.12, rowZ),
+					1.05
+				);
+			}
+
+			stage("Apply the DES encryption to the remaining bits.", "Bring the overflow bits back into view.");
+			await wait(STAGE_DELAY_MS);
+
+			const overflowTokens = overflowSource.map((entry, i) => {
+				const token = (entry && entry.mesh)
+					? entry
+					: makeBit(entry.bit, overflowOffscreenOrigin(overflowSide), entry.kind || "data");
+				setTokenScale(token, 1);
+				setTokenOpacity(token, 1);
+				return token;
+			});
+
+			const totalBlocks = 1 + overflowBlocks.length;
+			const blockTargets = [];
+			for (let blockIndex = 0; blockIndex < totalBlocks; blockIndex += 1) {
+				const blockStartX = baseStartX + (blockIndex * blockStride);
+				blockTargets.push(layoutLine(blockSize, blockStartX, rowY, overflowRowZ, bitStep));
+			}
+
+			stage("Apply the DES encryption to the remaining bits.", "Align the overflow into 64-bit blocks.");
+			await wait(STAGE_DELAY_MS);
+
+			for (let i = 0; i < overflowTokens.length; i += 1) {
+				const blockIndex = Math.floor(i / blockSize) + 1;
+				const inBlockIndex = i % blockSize;
+				animateTokenTo(overflowTokens[i], blockTargets[blockIndex][inBlockIndex], 0.32, i * 0.0015, 0.12);
+			}
+			await wait(820);
+
+			const groupedOverflowTokens = [];
+			for (let i = 0; i < overflowTokens.length; i += blockSize) groupedOverflowTokens.push(overflowTokens.slice(i, i + blockSize));
+			const preMergeCameraPos = camera.position.clone();
+			const preMergeCameraTarget = cameraTarget.clone();
+
+			const encryptedOverflowBlocks = [];
+			for (let blockIndex = 0; blockIndex < groupedOverflowTokens.length; blockIndex += 1) {
+				const textBlock = (allTextBlocks[blockIndex + 1] || "").padEnd(8, " ");
+				const plainBits64 = textToBits(textBlock).slice(0, 64);
+				const finalState = computeDesRoundStateAfter16(plainBits64, keyBits64);
+				const outputBits = finalState.left.concat(finalState.right);
+				const inputBlock = groupedOverflowTokens[blockIndex].slice();
+				const inputTargets = blockTargets[blockIndex + 1];
+				const outputTargets = inputTargets.map(p => p.clone().add(new THREE.Vector3(0, 0, 8.5)));
+				const originalInputLength = inputBlock.length;
+
+				const blockFrameAnchors = inputTargets.concat(outputTargets).map(target => {
+					const anchor = new THREE.Object3D();
+					anchor.position.copy(target);
+					return { mesh: anchor };
+				});
+				await fitCameraToTokens(blockFrameAnchors, {
+					padding: 1.12,
+					duration: 0.68,
+					minDistance: 10.8,
+					extraDistance: 1.6
+				});
+
+				if (originalInputLength < blockSize) {
+					stage("Padding", "Pad the final overflow group to 64 bits.");
+					await wait(STAGE_DELAY_MS);
+					for (let i = originalInputLength; i < blockSize; i += 1) {
+						const padBit = plainBits64[i];
+						const spawn = inputTargets[i].clone().add(new THREE.Vector3(0, 0.72, 0));
+						const padToken = makeBit(padBit, spawn, "key");
+						primeTokenForReveal(padToken, spawn, 0.001, 0);
+						inputBlock.push(padToken);
+
+						gsap.to(padToken.mesh.scale, {
+							x: 1,
+							y: 1,
+							z: 1,
+							duration: 0.3,
+							ease: "back.out(1.7)"
+						});
+						gsap.to(padToken.mesh.material, {
+							opacity: 0.86,
+							duration: 0.28,
+							ease: "power2.out"
+						});
+						animateTokenTo(padToken, inputTargets[i], 0.34, 0, 0.1);
+						await wait(26);
+					}
+
+					await wait(280);
+				}
+
+				if (keyInjectionTokens.length > 0) {
+					const keyStageTargets = layoutLine(keyInjectionTokens.length, inputTargets[0].x, inputTargets[0].y + 0.82, inputTargets[0].z, SHARED_ROW_AXIS.bitSpacing);
+					for (let i = 0; i < keyInjectionTokens.length; i += 1) {
+						animateTokenTo(keyInjectionTokens[i], keyStageTargets[i], 0.32, i * 0.0008, 0.06);
+					}
+					await wait(420);
+				}
+
+				const keyInjectionMode = (blockIndex < groupedOverflowTokens.length - 1) ? "mitosis" : "original";
+				await animateDesPipeline(inputBlock, inputTargets, outputTargets, outputBits, keyBits64, keyInjectionMode, keyInjectionTokens);
+				encryptedOverflowBlocks.push(inputBlock);
+				await wait(260);
+			}
+
+			await moveCamera(preMergeCameraPos, preMergeCameraTarget, 0.9);
+			await wait(180);
+
+			const groupedFinalTokens = baseRowTokens.concat(...encryptedOverflowBlocks);
+			stage("Ciphertext", "Merge the encrypted overflow blocks into one row.");
+			await wait(STAGE_DELAY_MS);
+
+			const baseEndX = baseRowTokens.length > 0
+				? Math.max(...baseRowTokens.map(token => token.mesh.position.x))
+				: (baseBounds ? baseBounds.max.x : 0);
+			const overflowTokensFlat = encryptedOverflowBlocks.flat();
+			const overflowTargets = layoutLine(overflowTokensFlat.length, baseEndX + bitStep, rowY, rowZ, bitStep);
+			for (let i = 0; i < overflowTokensFlat.length; i += 1) {
+				animateTokenTo(overflowTokensFlat[i], overflowTargets[i], 0.34, i * 0.0018, 0.1);
+			}
+			await wait(980);
+			await wait(300);
+			return groupedFinalTokens;
+		}
+
+		async function finalBinaryToAsciiReveal(leftTokens, rightTokens, sourceText = "") {
+			resetSectionSpeed();
+			setRoundSpeedFactor(1);
+
+			const final64 = leftTokens.concat(rightTokens);
+			if (final64.length === 0) return;
+
+			stage("Ciphertext", "Show the completed ciphertext row.");
+			await wait(STAGE_DELAY_MS);
+			await fitCameraToTokens(final64, {
+				padding: 1.2,
+				duration: 1.0,
+				minDistance: 12.5,
+				extraDistance: 2.8
+			});
+
+			const allBounds = tokenBounds(final64);
+			const allCenter = allBounds ? allBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ + 2.6);
+			const mergedY = SHARED_ROW_AXIS.bitY;
+			const mergedZ = (allBounds ? allCenter.z : SHARED_ROW_AXIS.bitZ) + 2.2;
+			const mergedStartX = -((final64.length - 1) * SHARED_ROW_AXIS.bitSpacing) / 2;
+			const mergedTargets = layoutLine(final64.length, mergedStartX, mergedY, mergedZ, SHARED_ROW_AXIS.bitSpacing);
+
+			for (let i = 0; i < final64.length; i += 1) {
+				animateTokenTo(final64[i], mergedTargets[i], 0.36, i * 0.003, 0.2);
+			}
+			await wait(950);
+
+			stage("Ciphertext", "Split the ciphertext into 7-bit groups.");
+			await wait(STAGE_DELAY_MS);
+
+			const sevenBitSpacing = 0.34;
+			const sevenBitGap = 1.0;
+			const rawXs = [];
+			for (let i = 0; i < final64.length; i += 1) {
+				rawXs.push((i * sevenBitSpacing) + (Math.floor(i / 7) * sevenBitGap));
+			}
+			const rawMaxX = rawXs.length > 0 ? rawXs[rawXs.length - 1] : 0;
+			const centeredOffset = -rawMaxX / 2;
+			const groupedTargets = rawXs.map(x => new THREE.Vector3(centeredOffset + x, mergedY, mergedZ + 1.4));
+
+			for (let i = 0; i < final64.length; i += 1) {
+				animateTokenTo(final64[i], groupedTargets[i], 0.34, i * 0.0015, 0.14);
+			}
+			await wait(900);
+
+			const groups = [];
+			for (let start = 0; start < final64.length; start += 7) {
+				groups.push(final64.slice(start, Math.min(start + 7, final64.length)));
+			}
+
+			const decoded = groups.map(group => {
+				const rawBits = group.map(t => String(t.bit)).join("");
+				const paddedBits = rawBits.padEnd(7, "0");
+				const code = parseInt(paddedBits, 2);
+				const onTable = rawBits.length === 7 && code >= 32 && code <= 126;
+				const char = onTable ? String.fromCharCode(code) : "?";
+				return { rawBits, paddedBits, code, onTable, char };
+			});
+
+			stage("Ciphertext", "Check the first group against the ASCII table.");
+			await wait(STAGE_DELAY_MS);
+			if (groups[0] && groups[0].length > 0) {
+				await fitCameraToTokens(groups[0], {
+					padding: 1.6,
+					duration: 0.9,
+					minDistance: 9.5,
+					extraDistance: 1.8
+				});
+				const firstBounds = tokenBounds(groups[0]);
+				if (firstBounds) {
+					const c = firstBounds.getCenter(new THREE.Vector3());
+					await moveCamera(
+						new THREE.Vector3(c.x, 5.8, c.z + 6.2),
+						new THREE.Vector3(c.x, c.y - 0.2, c.z),
+						0.8
+					);
+				}
+
+				const table = makeAsciiTable("right", true);
+				await wait(160);
+				if (decoded[0].onTable) {
+					await focusAsciiRow(table, decoded[0].code);
+				} else {
+					const cv = document.createElement("canvas");
+					cv.width = 180;
+					cv.height = 120;
+					const ctx = cv.getContext("2d");
+					ctx.fillStyle = "#244566";
+					ctx.font = "800 84px Avenir";
+					ctx.textAlign = "center";
+					ctx.textBaseline = "middle";
+					ctx.fillText("?", 90, 62);
+					const tex = new THREE.CanvasTexture(cv);
+					const qm = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, opacity: 0 }));
+					qm.scale.set(0.7, 0.46, 1);
+					qm.position.set(0, -0.35, -4.6);
+					qm.userData.dynamic = true;
+					camera.add(qm);
+					await new Promise(resolve => gsap.to(qm.material, {
+						opacity: 1,
+						duration: 0.22,
+						ease: "power2.out",
+						onComplete: resolve
+					}));
+					await wait(360);
+					gsap.to(qm.material, { opacity: 0, duration: 0.18, onComplete: () => removeObject(qm) });
+				}
+				await wait(420);
+				removeObject(table.group);
+			}
+
+			const textSprites = [];
+			function addTrackedTextSprite(text, width, height, font, color, scaleX, scaleY) {
+				const sprite = makeTextSprite(text, width, height, font, color, scaleX, scaleY);
+				sprite.userData.dynamic = true;
+				scene.add(sprite);
+				textSprites.push(sprite);
+				return sprite;
+			}
+
+			const compareZ = groupedTargets.length > 0 ? groupedTargets[0].z + 3.2 : mergedZ + 3.2;
+			const columnTopY = 1.5;
+			const rowStep = 0.62;
+			const bitColumnX = -6.2;
+			const charColumnX = 6.2;
+
+			const bitHeader = addTrackedTextSprite("FINAL 7-BIT GROUPS", 680, 90, "700 44px Menlo", "#2f4e6f", 3.1, 0.4);
+			bitHeader.position.set(bitColumnX, columnTopY + 0.85, compareZ);
+			const charHeader = addTrackedTextSprite("INITIAL CHARACTERS", 620, 90, "700 44px Menlo", "#2f4e6f", 2.8, 0.4);
+			charHeader.position.set(charColumnX, columnTopY + 0.85, compareZ);
+
+			const bitRows = [];
+			for (let i = 0; i < decoded.length; i += 1) {
+				const bitText = decoded[i].rawBits.length === 7 ? decoded[i].rawBits : `${decoded[i].rawBits} -> ?`;
+				const row = addTrackedTextSprite(bitText, 540, 84, "700 42px Menlo", "#31526f", 2.4, 0.34);
+				row.position.set(bitColumnX, columnTopY - (i * rowStep), compareZ);
+				bitRows.push(row);
+			}
+
+			await moveCamera(
+				new THREE.Vector3(0, 6.8, compareZ + 10.5),
+				new THREE.Vector3(0, -0.35, compareZ),
+				1.05
+			);
+
+			[bitHeader, charHeader].forEach((spr, i) => {
+				gsap.to(spr.material, { opacity: 1, duration: 0.36, delay: i * 0.08 });
+			});
+			bitRows.forEach((spr, i) => {
+				gsap.to(spr.material, { opacity: 1, duration: 0.34, delay: 0.12 + i * 0.06 });
+			});
+
+			stage("Ciphertext", "Reveal the source characters beside the bit groups.");
+			await wait(1700);
+
+			const sourceChars = sourceText.split("").slice(0, decoded.length);
+			while (sourceChars.length < decoded.length) sourceChars.push(" ");
+			const charRows = [];
+			for (let i = 0; i < sourceChars.length; i += 1) {
+				const ch = sourceChars[i] === " " ? "_" : sourceChars[i];
+				const row = addTrackedTextSprite(ch, 160, 120, "800 88px Avenir", "#224c73", 0.62, 0.42);
+				const targetY = columnTopY - (i * rowStep);
+				row.position.set(charColumnX, targetY + 2.4, compareZ);
+				charRows.push({ row, targetY });
+			}
+
+			for (let i = 0; i < charRows.length; i += 1) {
+				gsap.to(charRows[i].row.material, {
+					opacity: 1,
+					duration: 1.0,
+					delay: i * 0.09,
+					ease: "power2.out"
+				});
+				gsap.to(charRows[i].row.position, {
+					y: charRows[i].targetY,
+					duration: 1.45,
+					delay: i * 0.09,
+					ease: "power2.inOut"
+				});
+			}
+
+			await wait(3600);
+		}
+
 		async function run() {
+			applyAnimationSpeed(1);
+			turboToRound16Requested = false;
+			skipRoundBtn.textContent = "Fast Forward\nTo The End Of Round 16";
+			skipRoundBtn.style.display = "block";
+			skipRoundBtn.style.pointerEvents = "auto";
+			skipRoundBtn.style.transform = "translateY(0px)";
+			setSkipRoundButtonFilled(false);
+			gsap.to(skipRoundBtn, {
+				opacity: 1,
+				duration: 0.22,
+				delay: 0.1,
+				ease: "power2.out"
+			});
+
 			const plain = (plaintextInput.value || "DES-DEMO").slice(0, 32);
 			const keyText = (keyInput.value || "SeCr3t!!").slice(0, 8).padEnd(8, " ");
 			const blockPlain = plain.padEnd(8, " ");
+			updateFloorForCharacterSpan(blockPlain.length, keyText.length, "plaintext-intro");
 
 			split.classList.add("takeover");
 			await wait(560);
@@ -1576,18 +3798,29 @@
 				}
 			});
 
-			stage("Plaintext Focus", "Zoom to each character, find it in the fixed ASCII table, highlight row, then emit bits below.");
+			stage("Plaintext Bits", "Convert plaintext characters to 8-bit ASCII.");
 			await wait(STAGE_DELAY_MS);
 			await moveCamera(new THREE.Vector3(-0.6, 8, 14), new THREE.Vector3(-0.8, 0.2, 0.4), 1.1);
 
 			const plainJourney = await charBitsJourney(blockPlain, "left", "data");
+			const parkedPlaintextCopy = await createParkedPlaintextComparisonCopy(plainJourney.produced);
 
-			stage("Key Focus", "Camera slides right. Key follows the same ASCII-to-bit path.");
+			stage("Key Bits", "Convert key characters to 7-bit ASCII.");
 			await wait(STAGE_DELAY_MS);
+			{
+				const plaintextBounds = tokenBounds(plainJourney.produced);
+				const predictedKeyStartX = plaintextBounds ? (plaintextBounds.max.x + SHARED_ROW_AXIS.bitGap) : 0;
+				const predictedKeyTargets = layoutLine(64, predictedKeyStartX, SHARED_ROW_AXIS.bitY, SHARED_ROW_AXIS.bitZ, SHARED_ROW_AXIS.bitSpacing);
+				updateFloorForBitRows(plainJourney.produced, predictedKeyTargets);
+			}
 			await moveCamera(new THREE.Vector3(14.5, 8.2, 12.8), new THREE.Vector3(14.2, 0, 0.9), 1.15);
 			const keyJourney = await charBitsJourney(keyText, "right", "key");
 
-			stage("Dual View", "Camera pans out to show plaintext and key bit rows together.");
+			await arrangeRowWithGap(plainJourney.produced, "left", true);
+			await arrangeRowWithGap(keyJourney.produced, "right", true);
+			updateFloorForBitRows(plainJourney.produced, keyJourney.produced);
+
+			stage("Input Rows", "Show the plaintext and key bit rows together.");
 			await wait(STAGE_DELAY_MS);
 			await fitCameraToTokens(plainJourney.produced.concat(keyJourney.produced), {
 				padding: 1.14,
@@ -1597,7 +3830,7 @@
 			});
 			await wait(500);
 
-			stage("Plaintext Only", "Center on plaintext bits only. First 64 bits jump, then extra bits move to the corner.");
+			stage("Plaintext", "Center on the plaintext row.");
 			await wait(STAGE_DELAY_MS);
 			await fitCameraToTokens(plainJourney.produced, {
 				padding: 1.12,
@@ -1607,28 +3840,44 @@
 			});
 			const plain64 = plainJourney.first64;
 			const key64 = keyJourney.first64;
+			const rightMost64 = plainJourney.produced.slice(Math.max(0, plainJourney.produced.length - 64));
+			const rightMost64Bounds = tokenBounds(rightMost64);
+			const chosen64TargetStartX = rightMost64Bounds ? rightMost64Bounds.min.x : (tokenBounds(plain64)?.min.x ?? 0);
 			await bounceTokensOnce(plain64, 0.5);
 			await wait(420);
 
 			if (plainJourney.overflow.length > 0) {
-				stage("Put Away Overflow", "The extra plaintext bits move to the corner for now.");
+				stage("Plaintext", "Move overflow bits out of the main row.");
 				await wait(STAGE_DELAY_MS);
 				await sendOverflowOffscreen(plainJourney.overflow, "left");
+
+				stage("Plaintext", "Keep the 64-bit row aligned with the key gap.");
+				await wait(STAGE_DELAY_MS);
+				const chosen64Bounds = tokenBounds(plain64);
+				const chosen64Center = chosen64Bounds ? chosen64Bounds.getCenter(new THREE.Vector3()) : null;
+				const chosen64RowY = chosen64Center ? chosen64Center.y : SHARED_ROW_AXIS.bitY;
+				const chosen64RowZ = chosen64Center ? chosen64Center.z : SHARED_ROW_AXIS.bitZ;
+				const chosen64Targets = layoutLine(64, chosen64TargetStartX, chosen64RowY, chosen64RowZ, SHARED_ROW_AXIS.bitSpacing);
+				plain64.forEach((token, i) => animateTokenTo(token, chosen64Targets[i], 0.32, i * 0.002, 0.18));
+				await wait(760);
 			}
 
-			stage("Plaintext Half Split", "Zoom to plaintext row, split left and right halves one by one.");
+			stage("Initial Permutation", "Prepare the 64-bit plaintext block.");
 			await wait(STAGE_DELAY_MS);
 			await arrangeFirst64Row(plain64, "left", true);
-			stage("Initial Permutation", "Initial permutation table appears, bits map one-by-one, then return to row.");
+			stage("Initial Permutation", "Apply IP to the plaintext block.");
 			await wait(STAGE_DELAY_MS);
 			const ipPermuted = await showInitialPermutationRow(plain64, "left");
-			await fitCameraToTokens(plain64, {
+			await arrangeFirst64Row(ipPermuted, "left", false);
+			await fitCameraToTokens(ipPermuted, {
 				padding: 1.14,
 				duration: 0.9,
 				minDistance: 11.5,
 				extraDistance: 2.2
 			});
-			const plainHalves = await splitIntoHalves(ipPermuted, "left", "Plaintext Split L / R");
+			const plainHalves = await splitIntoHalves(ipPermuted, "left", "Split to L0 / R0");
+			const l0HomeTargets = plainHalves.left.map(token => tokenWorldPoint(token));
+			const r0HomeTargets = plainHalves.right.map(token => tokenWorldPoint(token));
 			await fitCameraToTokens(plainHalves.left.concat(plainHalves.right), {
 				padding: 1.14,
 				duration: 0.7,
@@ -1636,44 +3885,85 @@
 				extraDistance: 2.2
 			});
 
-			stage("Expansion Permutation", "Expansion table appears and right-half bits map to 48 positions one by one.");
-			await wait(STAGE_DELAY_MS);
-			await fitCameraToTokens(plainHalves.right, {
-				padding: 1.1,
-				duration: 0.8,
-				minDistance: 10.8,
-				extraDistance: 1.9
-			});
-			const expandedR = await showExpansionPermutation(plainHalves.right, "left");
-
-			stage("Key Schedule Side", "Pan right for key split, shifts, and contraction permutation.");
+			stage("Key Schedule", "Prepare the key block.");
 			await wait(STAGE_DELAY_MS);
 			await arrangeFirst64Row(key64, "right", false);
-			stage("Drop Parity Bits", "Every 8th key bit is parity-only: bounce then fade out.");
-			await wait(STAGE_DELAY_MS);
-			const key56 = await parityDropEveryEighth(key64);
-			await arrangeRowWithGap(key56, "right", true);
 
-			stage("Permuted Choice 1", "PC-1 table appears below key bits and selects/reorders 56 bits.");
+			stage("Permuted Choice 1", "Reduce the key to 56 bits.");
 			await wait(STAGE_DELAY_MS);
-			const key56SourceIndices = [];
-			for (let i = 0; i < 64; i += 1) {
-				if ((i + 1) % 8 !== 0) key56SourceIndices.push(i);
+			const pc1Row = await showPermutedChoice1(key64);
+			const keyRowLeftEdge = tokenBounds(key64)?.min.x ?? rowBounds.right?.start ?? 0;
+			const keyRowOriginStart = keyRowLeftEdge;
+			pc1Row.forEach((token, i) => {
+				token.mesh.position.x = keyRowOriginStart + (i * SHARED_ROW_AXIS.bitSpacing);
+			});
+
+			let currentLeft = plainHalves.left;
+			let currentRight = plainHalves.right;
+			let key56State = pc1Row;
+			setRoundSpeedFactor(turboToRound16Requested ? TURBO_ROUND_SPEED_FACTOR : 1);
+
+			for (let round = 1; round <= 16; round += 1) {
+				const roundSpeedFactor = turboToRound16Requested
+					? TURBO_ROUND_SPEED_FACTOR
+					: (round === 1 ? 1 : (round === 2 ? 2 : (round === 3 ? 10 : 20)));
+				setRoundSpeedFactor(roundSpeedFactor);
+				activeStageRoundPrefix = round === 1 ? "" : `Round ${round}/16:`;
+				stage("Feistel Round", `Expand R, mix K${round}, and update the halves.`);
+				await wait(STAGE_DELAY_MS);
+
+				const expandedRoundRight = await showExpansionPermutation(currentRight, "left");
+				const keyScheduleResult = await keyShiftAndContract(key56State, round);
+				key56State = keyScheduleResult.nextKey56;
+
+				stage("XOR", `XOR E(R${round - 1}) with K${round}.`);
+				await wait(STAGE_DELAY_MS);
+
+				const xorBits = await xorOverlay(expandedRoundRight, keyScheduleResult.key48);
+				const sboxOut = await sboxJourney(xorBits);
+				const pOut = await showStraightPermutation(sboxOut);
+				const nextRight = await feistelXorWithLeftHalf(currentLeft, pOut);
+				const nextHalves = await finalizeRoundOneHalves(currentRight, nextRight, l0HomeTargets, r0HomeTargets, round, 16);
+				currentLeft = nextHalves.l1;
+				currentRight = nextHalves.r1;
+				if (round === 1) setSkipRoundButtonFilled(true);
 			}
-			const pc1Row = await showPermutedChoice1(key56, key56SourceIndices);
+			activeStageRoundPrefix = "";
+			setRoundSpeedFactor(1);
+			resetSectionSpeed();
+			skipRoundBtn.style.pointerEvents = "none";
+			skipRoundBtn.style.display = "none";
+			const mergedFinal = await mergeFinalHalvesIntoOneRow(currentLeft, currentRight);
+			let finalProcessedTokens = mergedFinal;
+			const restoredKeyTokens = await restoreOriginalKeyBitsBeforeOverflow(key56State, mergedFinal);
+			const hasOverflowBits = !!(plainJourney.overflow && plainJourney.overflow.length > 0);
+			if (hasOverflowBits) {
+				if (restoredKeyTokens && restoredKeyTokens.length > 0) {
+					stage("Apply the DES encryption to the remaining bits.", "Continue with the remaining encrypted blocks.");
+					await wait(STAGE_DELAY_MS);
+				}
+				finalProcessedTokens = await appendOverflowAndTransformBlocks(mergedFinal, plainJourney.overflow, plain, keyText, "left", restoredKeyTokens);
+			} else if (restoredKeyTokens && restoredKeyTokens.length > 0) {
+				stage("Key Schedule", "Remove the restored key bits.");
+				for (let i = 0; i < restoredKeyTokens.length; i += 1) {
+					const token = restoredKeyTokens[i];
+					if (token.mesh && token.mesh.material) {
+						token.mesh.material.transparent = true;
+						gsap.to(token.mesh.material, {
+							opacity: 0,
+							duration: 0.24,
+							delay: i * 0.001,
+							ease: "power2.in",
+							onComplete: () => removeObject(token.mesh)
+						});
+					}
+				}
+				await wait(360);
+			}
 
-			const roundKey48 = await keyShiftAndContract(pc1Row);
+			await overlayParkedPlaintextComparison(parkedPlaintextCopy, finalProcessedTokens);
 
-			stage("XOR Setup", "Expanded plaintext and round key move closer and stack for XOR.");
-			await wait(STAGE_DELAY_MS);
-			expandedR.forEach((t, i) => animateTokenTo(t, layoutGrid(48, 12, -0.5, 0.35, 2.6, 0.5, 0.5)[i], 0.34, i * 0.004, 0.2));
-			roundKey48.forEach((t, i) => animateTokenTo(t, layoutGrid(48, 12, -0.5, -1.0, 2.6, 0.5, 0.5)[i], 0.34, i * 0.004, 0.2));
-			await moveCamera(new THREE.Vector3(-0.5, 8, 12.4), new THREE.Vector3(-0.5, -0.4, 2.8), 1.0);
-			await wait(740);
-
-			await xorOverlay(expandedR, roundKey48);
-
-			stage("Checkpoint", "Flow fixed: plaintext/key conversion, 64-bit rows, split/expansion, key shifts/contraction, and XOR alignment.");
+			stage("Ciphertext", "The completed ciphertext row is ready.");
 		}
 
 		function animate() {
@@ -1695,9 +3985,14 @@
 
 		split.addEventListener("submit", async ev => {
 			ev.preventDefault();
+			if (isMobileOrTablet) return;
 			if ((keyInput.value || "").length < 1) return;
 			split.style.pointerEvents = "none";
 			await run();
+		});
+
+		skipRoundBtn.addEventListener("click", () => {
+			setTurboSkipRequested();
 		});
 	</script>
 </body>
